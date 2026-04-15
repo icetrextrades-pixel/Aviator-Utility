@@ -10,7 +10,17 @@ st.set_page_config(page_title="ICETREX LICENSE SYSTEM", layout="centered")
 # These are the pre-generated valid keys. You can add more to this list.
 # Pro-tip: Give your friend a unique code and add it here.
 VALID_KEYS = ["ICE-7742-X", "BETA-2026-PRO", "GZU-STUDENT-99", "ADMIN-KING"]
-
+# --- INITIALIZE SESSION STATES (The Fix) ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'app_state' not in st.session_state:
+    st.session_state.app_state = "READY"
+if 'current_val' not in st.session_state:
+    st.session_state.current_val = None
+if 'label' not in st.session_state:
+    st.session_state.label = ""
+if 'color' not in st.session_state:
+    st.session_state.color = "white"
 def check_access():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
