@@ -23,54 +23,60 @@ def check_access():
         st.markdown("""
             <style>
             .stApp {
-                background: linear-gradient(rgba(0,0,0,0.9), rgba(0,0,0,0.9)), 
+                background: linear-gradient(rgba(0,0,0,0.92), rgba(0,0,0,0.92)), 
                             url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
                 background-size: cover;
             }
             .auth-box {
                 background-color: rgba(10, 10, 10, 0.95);
-                padding: 30px; border-radius: 15px; border: 2px solid #00ff00;
-                text-align: center;
+                padding: 35px; border-radius: 20px; border: 2px solid #00ff00;
+                text-align: center; box-shadow: 0 0 25px rgba(0, 255, 0, 0.1);
             }
             .download-section {
                 margin-top: 25px;
-                padding-top: 20px;
-                border-top: 1px solid #333;
+                padding-top: 25px;
+                border-top: 1px solid #222;
             }
             </style>
             """, unsafe_allow_html=True)
 
         st.markdown('<div class="auth-box">', unsafe_allow_html=True)
-        st.title("🛡️ ICETREX ADMIN")
+        st.title("🛡️ ICETREX CENTRAL")
+        st.markdown("<p style='color:#777; font-size:14px;'>Authorized Personnel Only</p>", unsafe_allow_html=True)
         
+        # Identity Inputs
         u_in = st.text_input("👤 USERNAME").strip()
         k_in = st.text_input("🔑 PRODUCT KEY", type="password").strip()
         
         if st.button("UNLOCK SYSTEM", use_container_width=True):
-            if u_in == ADMIN_USER and k_in == ADMIN_KEY:
+            # Using your specific hardcoded credentials
+            if u_in == "Icetrex" and k_in == "ADMIN-KING":
                 st.session_state.authenticated = True
                 st.session_state.user_name = u_in
+                st.success("Access Granted. Syncing...")
+                time.sleep(1)
                 st.rerun()
             else:
-                st.error("Access Denied.")
+                st.error("Authentication Failed: Integrity Mismatch")
 
-        # --- NEW DOWNLOAD SECTION ---
+        # --- MOBILE DISTRIBUTION SECTION ---
         st.markdown('<div class="download-section">', unsafe_allow_html=True)
-        st.write("📥 **Get the Official App**")
+        st.write("📲 **Download Mobile Edition**")
         
-        # Replace with your actual GitHub Raw link
-        apk_url = "https://github.com/YOUR_USERNAME/aviator-utility/raw/main/icetrex_pro.apk"
+        # YOUR VERIFIED GITHUB LINK
+        apk_url = "https://github.com/icetrextrades-pixel/Aviator-Utility/raw/refs/heads/main/app-release.apk"
         
         st.markdown(f'''
             <a href="{apk_url}" target="_blank" style="text-decoration:none;">
-                <button style="width:100%; height:45px; background-color:#00ff00; color:black; border-radius:8px; font-weight:bold; border:none; cursor:pointer;">
-                    📱 DOWNLOAD MOBILE APK
+                <button style="width:100%; height:50px; background-color:#00ff00; color:black; border-radius:12px; font-weight:bold; border:none; cursor:pointer; font-size:16px; box-shadow: 0 4px 15px rgba(0,255,0,0.3);">
+                    📥 INSTALL APP-RELEASE.APK
                 </button>
             </a>
         ''', unsafe_allow_html=True)
+        st.markdown("<p style='color:#555; font-size:11px; margin-top:10px;'>V1.12 Build | E2E Encrypted</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.markdown("<br><a style='color:#00ff00; font-size:12px;' href='mailto:icetrextrades@gmail.com'>Contact: icetrextrades@gmail.com</a>", unsafe_allow_html=True)
+        st.markdown("<br><a style='color:#00ff00; font-size:12px; text-decoration:none;' href='mailto:icetrextrades@gmail.com'>Contact: icetrextrades@gmail.com</a>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         return False
     return True
