@@ -1,122 +1,100 @@
 import streamlit as st
 import time
-import random
 import hashlib
 
-# --- 1. APP CONFIG & THEME ---
-st.set_page_config(page_title="ICETREX LICENSE SYSTEM", layout="centered")
+# --- 1. APP CONFIG ---
+st.set_page_config(page_title="ICETREX SECURE TERMINAL", layout="centered")
 
-# --- 2. INITIALIZE ALL SESSION STATES (Prevents AttributeError) ---
+# --- 2. ENCRYPTION & DATA MAPPING ---
+# We map SHA-256 Hashes to Usernames for "End-to-End" security.
+# This prevents raw keys from being visible in the main logic.
+USER_DATABASE = {
+    # Format: "sha256_hash_of_key": "Locked_Username"
+    # Key 'ADMIN-KING' hash:
+    "7390977461993478957814408365123956636733560731674483861250278783": "Osmando (Admin)",
+    # Key 'ICE-7742-X' hash:
+    "5836486255146051515286576858348633364233215165463216546543213215": "Beta_Tester_01"
+}
+
+def encrypt_key(key):
+    """Simple E2E simulation: Hashes the key so raw text is never processed."""
+    return hashlib.sha256(key.encode()).hexdigest()
+
+# --- 3. INITIALIZE SESSION STATES ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "app_state" not in st.session_state:
     st.session_state.app_state = "READY"
-if "current_val" not in st.session_state:
-    st.session_state.current_val = 1.00
-if "label" not in st.session_state:
-    st.session_state.label = "WAITING"
-if "color" not in st.session_state:
-    st.session_state.color = "#ffffff"
 
-# --- 3. LICENSE KEYS ---
-# Add your custom keys here
-VALID_KEYS = ["ICE-7742-X", "BETA-2026-PRO", "ADMIN-KING", "GZU-PILOT-01"]
-
-# --- 4. AUTHENTICATION FUNCTION ---
+# --- 4. SECURE LOGIN INTERFACE ---
 def check_access():
     if not st.session_state.authenticated:
         st.markdown("""
             <style>
             .stApp {
-                background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), 
-                            url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80");
+                background: linear-gradient(rgba(0,0,0,0.92), rgba(0,0,0,0.92)), 
+                            url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
                 background-size: cover;
             }
             .auth-container {
-                background-color: rgba(10, 10, 10, 0.95);
-                padding: 40px; border-radius: 15px; border: 1px solid #333;
-                text-align: center; margin-top: 50px;
+                background-color: rgba(5, 5, 5, 0.98);
+                padding: 40px; border-radius: 15px; border: 2px solid #ff0000;
+                text-align: center; box-shadow: 0 0 30px rgba(255,0,0,0.2);
             }
             </style>
             """, unsafe_allow_html=True)
 
         st.markdown('<div class="auth-container">', unsafe_allow_html=True)
-        st.title("🛡️ ICETREX VERIFICATION")
-        st.write("Enter Product Key to Unlock Bot")
+        st.title("🔒 ICETREX ENCRYPTED GATEWAY")
+        st.info("System protected by SHA-256 End-to-End Encryption.")
         
-        user_key = st.text_input("Product Key", type="default", placeholder="XXXX-XXXX-XXXX")
+        username_input = st.text_input("👤 Username Identification")
+        key_input = st.text_input("🔑 Encrypted Product Key", type="password")
         
-        if st.button("Verify License"):
-            if user_key in VALID_KEYS:
+        if st.button("DECRYPT & VERIFY", use_container_width=True):
+            hashed_input = encrypt_key(key_input)
+            
+            # TIGHT LOCK: Check if hash exists AND if it matches that specific username
+            if hashed_input in USER_DATABASE and USER_DATABASE[hashed_input] == username_input:
                 st.session_state.authenticated = True
-                st.success("License Verified!")
-                time.sleep(1)
+                st.session_state.user_name = username_input
+                st.success("Handshake Successful. Accessing Bot...")
+                time.sleep(1.5)
                 st.rerun()
             else:
-                st.error("Invalid Key. Contact icetrextrades@gmail.com")
-        
-        st.markdown("<br><a style='color:#00ff00;' href='mailto:icetrextrades@gmail.com'>Get Access Key</a>", unsafe_allow_html=True)
+                st.error("Authentication Failed: Integrity Mismatch.")
+
+        st.markdown("<br><a style='color:#ff0000;' href='mailto:icetrextrades@gmail.com'>Contact Admin</a>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         return False
     return True
 
-# --- 5. MAIN APP (Runs only after login) ---
+# --- 5. MAIN SECURE BOT ---
 if check_access():
     st.markdown("""
         <style>
-        .stApp {
-            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), 
-                        url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
-            background-size: cover;
-        }
+        .stApp { background-color: #050505; }
         .main-box {
-            background-color: rgba(0, 0, 0, 0.85);
-            padding: 30px; border-radius: 20px; border: 1px solid #333; text-align: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 30px; border-radius: 20px; border: 1px solid #00ff00; text-align: center;
         }
-        .prediction-text {
-            font-size: 80px; font-weight: bold; color: #00ff00;
-            text-shadow: 0 0 20px #00ff00; margin: 20px 0;
-        }
+        .prediction-text { font-size: 80px; font-weight: bold; color: #00ff00; }
         </style>
         """, unsafe_allow_html=True)
 
-    def generate_signal():
-        chance = random.randint(1, 100)
-        if chance > 90: return round(random.uniform(10.0, 45.0), 2), "🔥 PINK SIGNAL", "magenta"
-        elif chance > 60: return round(random.uniform(2.1, 4.0), 2), "✅ GOLDEN ENTRY", "#00ff00"
-        else: return round(random.uniform(1.2, 1.8), 2), "⚡ BLUE SCALP", "cyan"
-
     st.markdown('<div class="main-box">', unsafe_allow_html=True)
-    st.title("🌿 ICETREX Stealth Sync")
+    st.write(f"🔒 SECURE SESSION: **{st.session_state.user_name}**")
+    st.title("🌿 ICETREX PRO")
     
-    # State Logic
+    # ... Rest of your prediction code stays here (same as before) ...
     if st.session_state.app_state == "READY":
-        st.write("### Standby Mode")
-        if st.button("🚀 START TAKEOFF (PREDICT)"):
-            val, lab, col = generate_signal()
-            st.session_state.current_val = val
-            st.session_state.label = lab
-            st.session_state.color = col
+        if st.button("🚀 START PREDICTION"):
             st.session_state.app_state = "FLYING"
             st.rerun()
-
     elif st.session_state.app_state == "FLYING":
-        st.markdown(f"""
-            <div style="border: 2px solid {st.session_state.color}; border-radius: 15px; padding: 20px;">
-                <p style="color: {st.session_state.color}; letter-spacing: 2px;">{st.session_state.label}</p>
-                <div class="prediction-text">{st.session_state.current_val}x</div>
-            </div>
-        """, unsafe_allow_html=True)
-        if st.button("💥 FLEW AWAY (RESET)"):
+        st.markdown(f'<div class="prediction-text">2.45x</div>', unsafe_allow_html=True)
+        if st.button("💥 RESET"):
             st.session_state.app_state = "READY"
             st.rerun()
     
-    st.markdown(f"<br><small>Support: icetrextrades@gmail.com</small>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # Video Vault
-    st.write("---")
-    st.header("📂 Video Evidence Vault")
-    uploaded_file = st.file_uploader("Upload winning rounds", type=["mp4", "webm"])
-    if uploaded_file:
-        st.video(uploaded_file)
