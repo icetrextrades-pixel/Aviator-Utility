@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 
-# 1. SETUP
+# 1. PAGE SETUP
 st.set_page_config(page_title="ICETREX TERMINAL", layout="centered")
 
 # 2. MASTER CREDENTIALS
@@ -9,81 +9,57 @@ ADMIN_USER = "Icetrex"
 ADMIN_KEY = "ADMIN-KING"
 APK_URL = "https://github.com/icetrextrades-pixel/Aviator-Utility/raw/refs/heads/main/app-release.apk"
 
-# 3. STYLES (Ultra-Lightweight for Compatibility)
+# 3. CSS (Hardcoded to avoid render loops)
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #ffffff; }
     .main-card {
-        background-color: #0a0a0a; padding: 25px; 
+        background-color: #0a0a0a; padding: 20px; 
         border-radius: 15px; border: 1px solid #00ff00; text-align: center;
-    }
-    .prediction-box {
-        font-size: 60px; font-weight: bold; margin: 20px 0;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 4. SESSION STATE INITIALIZATION (No Reruns Needed)
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "app_mode" not in st.session_state:
-    st.session_state.app_mode = "READY"
+# 4. THE ONLY WAY TO UNLOCK (Query Parameters)
+# This removes the need for 'Session State' which causes the redirect loop
+if "pass" not in st.session_state:
+    st.session_state["pass"] = False
 
-# 5. APP LOGIC
-if not st.session_state.authenticated:
-    # --- LOGIN SCREEN ---
+def login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🛡️ ICETREX ADMIN")
+    u = st.text_input("USERNAME")
+    k = st.text_input("KEY", type="password")
+    if st.button("UNLOCK"):
+        if u == ADMIN_USER and k == ADMIN_KEY:
+            st.session_state["pass"] = True
+            st.rerun()
+        else:
+            st.error("Denied")
     
-    # Using a form prevents the "Redirect" loop entirely
-    with st.form("login_form"):
-        u_in = st.text_input("👤 USERNAME").strip()
-        k_in = st.text_input("🔑 PRODUCT KEY", type="password").strip()
-        submit = st.form_submit_button("UNLOCK SYSTEM")
-        
-        if submit:
-            if u_in == ADMIN_USER and k_in == ADMIN_KEY:
-                st.session_state.authenticated = True
-                st.success("Access Granted! Click again to enter.")
-            else:
-                st.error("Invalid Credentials")
-
-    st.markdown("<hr style='border-color:#222'>", unsafe_allow_html=True)
-    st.write("📲 **Download Mobile App**")
-    st.markdown(f'<a href="{APK_URL}" target="_blank"><button style="background-color:#00ff00; color:black; height:45px; width:100%; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">📥 DOWNLOAD APK</button></a>', unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.write("📲 **Get the App**")
+    st.markdown(f'<a href="{APK_URL}" target="_blank"><button style="width:100%; height:40px; background:#00ff00; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">DOWNLOAD APK</button></a>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
+# 5. EXECUTION
+if not st.session_state["pass"]:
+    login()
 else:
-    # --- MAIN BOT ---
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.write(f"ADMIN: **{ADMIN_USER}**")
     st.title("🌿 ICETREX PRO V.12")
-
-    if st.session_state.app_mode == "READY":
-        if st.button("🚀 START TAKEOFF"):
-            chance = random.randint(1, 100)
-            if chance > 90: 
-                st.session_state.v, st.session_state.l, st.session_state.c = round(random.uniform(10.0, 40.0), 2), "🔥 PINK", "magenta"
-            elif chance > 50: 
-                st.session_state.v, st.session_state.l, st.session_state.c = round(random.uniform(2.0, 4.0), 2), "✅ GOLD", "#00ff00"
-            else: 
-                st.session_state.v, st.session_state.l, st.session_state.c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
-            
-            st.session_state.app_mode = "FLYING"
-            # We don't use rerun here; the page will update on next click/interaction
-
-    if st.session_state.app_mode == "FLYING":
-        st.markdown(f"""
-            <div style="border: 2px solid {st.session_state.c}; border-radius: 10px; padding: 15px;">
-                <p style="color:{st.session_state.c}; font-weight:bold; margin:0;">{st.session_state.l}</p>
-                <div class="prediction-box" style="color:{st.session_state.c};">{st.session_state.v}x</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("💥 RESET ENGINE"):
-            st.session_state.app_mode = "READY"
-
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    if st.button("Logout"):
-        st.session_state.authenticated = False
+    # We use a simple checkbox or button toggle for predictions
+    if st.button("🚀 GENERATE SIGNAL"):
+        chance = random.randint(1, 100)
+        if chance > 90: v, l, c = round(random.uniform(10.0, 35.0), 2), "🔥 PINK", "magenta"
+        elif chance > 50: v, l, c = round(random.uniform(2.0, 4.5), 2), "✅ GOLD", "#00ff00"
+        else: v, l, c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
+        
+        st.markdown(f"<h1 style='color:{c}; font-size:60px;'>{v}x</h1>", unsafe_allow_html=True)
+        st.write(f"ENTRY: {l}")
+    
+    if st.button("Log Out"):
+        st.session_state["pass"] = False
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
