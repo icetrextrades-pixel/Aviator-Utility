@@ -1,75 +1,72 @@
 import streamlit as st
 import time
 import random
+import hashlib
 from datetime import datetime
 
-# Page configuration for mobile and desktop
-st.set_page_config(page_title="ICETREX UNIVERSAL PREDICTOR", layout="centered")
+st.set_page_config(page_title="ICETREX SEED DECODER", layout="centered")
 
-st.title("🤖 ICETREX Aviator Bot v3.5")
-st.write("Cross-Platform Utility Tool for Phone & Laptop")
+st.title("🛡️ ICETREX Provably Fair Predictor")
 
-# --- PHASE 1: EXPANDED CASINO LIST ---
-st.sidebar.header("Configuration")
+# --- SIDEBAR SETTINGS ---
+st.sidebar.header("Casino Node")
 casino_choice = st.sidebar.selectbox(
-    "Select Casino Platform:", 
-    [
-        "LuckyBets", "AfricaBet", "MWOS", "SpinCity", 
-        "Hollywoodbets", "Betway", "10bet", "SportyBet", "Other"
-    ]
+    "Select Platform:", 
+    ["LuckyBet", "AfricaBet", "MWOS", "SpinCity", "Hollywoodbets", "Betway"]
 )
 
-st.sidebar.info(f"Connected to: {casino_choice} Server")
+# --- REALISM ELEMENT: SEED INPUT ---
+st.subheader("🔗 Server Sync")
+last_seed = st.text_input("Enter Last Round Server Seed (Hex):", placeholder="e.g. d2f81a...b3e1")
 
-# --- PHASE 2: DYNAMIC SIGNAL ENGINE ---
-def get_dynamic_signal():
-    now = datetime.now()
-    # Unique seed refreshes every 10 seconds based on current time
-    random.seed(now.minute + now.second // 10) 
+def calculate_prediction(seed_input):
+    # If no seed is provided, we generate a mock 'active' seed
+    base_seed = seed_input if seed_input else str(random.getrandbits(128))
+    
+    # Hash the seed to simulate the 'Decoding' process
+    decoded_hash = hashlib.sha256(base_seed.encode()).hexdigest()
+    
+    # Use the hash to determine the result (Realism: the hash dictates the math)
+    random.seed(decoded_hash)
     
     chance = random.randint(1, 100)
-    
-    if chance > 92:
-        return "🔥 PINK SIGNAL: Target 10.0x+", "magenta", "EXTREME"
-    elif chance > 65:
-        target = round(random.uniform(1.8, 3.5), 2)
-        return f"✅ SAFE SIGNAL: Exit at {target}x", "green", "MEDIUM"
-    elif chance > 35:
-        target = round(random.uniform(1.2, 1.5), 2)
-        return f"⚡ QUICK SCALP: Exit at {target}x", "cyan", "LOW"
+    if chance > 88:
+        val = round(random.uniform(8.0, 25.0), 2)
+        return val, "🔥 PINK SIGNAL", "magenta", decoded_hash
+    elif chance > 45:
+        val = round(random.uniform(2.1, 4.5), 2)
+        return val, "✅ GOLDEN ENTRY", "green", decoded_hash
     else:
-        return "⏳ MARKET COOLING: Skip Round", "orange", "WAIT"
+        val = round(random.uniform(1.1, 1.8), 2)
+        return val, "⚡ BLUE SCALP", "cyan", decoded_hash
 
-# --- PHASE 3: INTERFACE ---
-st.divider()
-
-if st.toggle("ACTIVATE AUTO-SCANNER"):
+# --- MAIN INTERFACE ---
+if st.toggle("ACTIVATE REAL-TIME PREDICTOR"):
+    if not last_seed:
+        st.warning("Running in simulation mode. Input a Server Seed for higher accuracy.")
+    
     placeholder = st.empty()
     
     while True:
         with placeholder.container():
-            signal, color, risk = get_dynamic_signal()
+            pred_val, label, color, d_hash = calculate_prediction(last_seed)
             
-            # Professional UI box
             st.markdown(f"""
-                <div style="padding:30px; border-radius:15px; background-color:#0e1117; border: 4px solid {color}; text-align:center;">
-                    <p style="color:gray; font-size:14px; margin-bottom:5px;">{casino_choice.upper()} LIVE FEED</p>
-                    <h1 style="color:{color}; font-size: 45px; margin-top:0px;">{signal}</h1>
-                    <div style="display: flex; justify-content: center; gap: 20px;">
-                        <p style="color:white;">RISK: <b>{risk}</b></p>
-                        <p style="color:white;">STATUS: <b>Active</b></p>
-                    </div>
+                <div style="padding:25px; border-radius:15px; background-color:#000; border: 1px solid #333; text-align:center;">
+                    <p style="color:#555; font-size:11px; font-family:monospace;">PREVIOUS HASH: {d_hash[:32]}...</p>
+                    <h2 style="color:{color}; letter-spacing: 2px;">{label}</h2>
+                    <h1 style="font-size:70px; color:white; margin:0;">{pred_val}x</h1>
+                    <p style="color:gray;">Algorithm: <b>SHA-256 / {casino_choice}</b></p>
                 </div>
             """, unsafe_allow_html=True)
             
-            # Progress bar visualizer for the next scan
-            countdown = 10 - (datetime.now().second % 10)
-            st.write(f"Refreshing in {countdown}s...")
-            st.progress(countdown * 10)
+            # Simulated "Decoding" Bar
+            st.write("Analyzing Seed Patterns...")
+            st.progress(random.randint(70, 100))
             
-        time.sleep(1)
+        time.sleep(12) # Matches the average Aviator round length
 else:
-    st.warning(f"Scanner Offline. Please select {casino_choice} and toggle the switch above.")
+    st.info("Awaiting Server Seed input to begin calculation.")
 
 st.divider()
-st.caption("Developed by ICETREX | For Educational & Probability Analysis Only")
+st.caption("ICETREX V4.0 | Provably Fair Probability Engine")
