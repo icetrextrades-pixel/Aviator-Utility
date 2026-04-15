@@ -3,62 +3,100 @@ import time
 import random
 import hashlib
 
-st.set_page_config(page_title="ICETREX ACCURACY PRO", layout="centered")
+st.set_page_config(page_title="ICETREX CIRCLE SYNC", layout="centered")
 
-# Professional Dark UI
+# --- ADVANCED CIRCULAR UI ---
 st.markdown("""
     <style>
-    .main { background-color: #000; }
-    .stButton>button {
-        width: 100%; height: 80px; font-size: 25px !important;
-        background-color: #00ff00; color: black; font-weight: bold; border-radius: 10px;
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
     }
-    .prediction-box {
-        padding: 30px; border-radius: 15px; background-color: #111;
-        border: 2px solid #00ff00; text-align: center;
+    .circle-container {
+        display: flex; justify-content: center; align-items: center;
+        height: 300px; position: relative;
+    }
+    .outer-circle {
+        width: 250px; height: 250px;
+        border-radius: 50%;
+        border: 10px solid #222;
+        border-top: 10px solid #00ff00;
+        animation: rotate 2s linear infinite;
+    }
+    .inner-val {
+        position: absolute; font-size: 50px; font-weight: bold; color: white;
+    }
+    .stButton>button {
+        width: 100%; height: 80px; font-size: 22px !important;
+        background-color: #ff4b4b; color: white; border-radius: 50px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🛡️ ICETREX Probability Engine v9.0")
-st.write("Focused on 85%+ Accuracy Safe-Zone Signals")
+st.title("🛡️ ICETREX Circle Sync v10.0")
 
 # --- SETTINGS ---
-casino = st.sidebar.selectbox("Node:", ["LuckyBets", "AfricaBet", "MWOS", "SpinCity", "Betway", "Hollywoodbets"])
-trend = st.sidebar.select_slider("Current Market Trend:", options=["COLD", "STABLE", "HOT"], value="STABLE")
+casino = st.sidebar.selectbox("Active Node:", ["LuckyBets", "AfricaBet", "MWOS", "SpinCity", "Betway", "Hollywoodbets"])
+risk_level = st.sidebar.select_slider("Risk Profile:", options=["LOW", "MEDIUM", "HIGH"])
 
-def get_high_accuracy_pred(trend_type):
-    # Base logic: If market is stable, target the 1.5x - 2.5x sweet spot
-    # This is the most consistent winning range in Aviator
-    if trend_type == "COLD":
-        return round(random.uniform(1.20, 1.45), 2), "⚡ ULTRA-SAFE EXIT", "#00f2ff"
-    elif trend_type == "HOT":
-        return round(random.uniform(2.50, 5.50), 2), "🔥 BULL MARKET", "#ff00ff"
-    else: # STABLE
-        return round(random.uniform(1.55, 2.20), 2), "✅ HIGH PROBABILITY", "#00ff00"
+def generate_logic(risk):
+    # Logic adjusted to be more "honest" with actual game rhythms
+    chance = random.randint(1, 100)
+    if risk == "HIGH" and chance > 80:
+        return round(random.uniform(5.0, 20.0), 2)
+    elif risk == "MEDIUM" and chance > 50:
+        return round(random.uniform(2.0, 4.5), 2)
+    else:
+        return round(random.uniform(1.2, 1.8), 2)
 
-# --- APP LOGIC ---
-if 'state' not in st.session_state:
-    st.session_state.state = "WAITING"
+# --- STATE CONTROL ---
+if 'mode' not in st.session_state:
+    st.session_state.mode = "WAITING"
 
-if st.session_state.state == "WAITING":
-    if st.button("GET HIGH-ACCURACY SIGNAL"):
-        st.session_state.current_data = get_high_accuracy_pred(trend)
-        st.session_state.state = "DISPLAY"
+if st.session_state.mode == "WAITING":
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.button("🚀 PREDICT NEXT ROUND"):
+        st.session_state.target = generate_logic(risk_level)
+        st.session_state.mode = "FLYING"
         st.rerun()
 
-else:
-    val, label, color = st.session_state.current_data
+elif st.session_state.mode == "FLYING":
+    placeholder = st.empty()
+    
+    # --- ANIMATION LOOP ---
+    # The "Circle" stays active while we count up to the predicted value
+    current_val = 1.00
+    step = 0.05
+    
+    while current_val <= st.session_state.target:
+        with placeholder.container():
+            st.markdown(f"""
+                <div class="circle-container">
+                    <div class="outer-circle"></div>
+                    <div class="inner-val">{current_val:.2f}x</div>
+                </div>
+                <p style="text-align:center; color:gray;">{casino} SEED DECODING IN PROGRESS...</p>
+            """, unsafe_allow_html=True)
+        
+        # Speed of the count-up (Faster for lower numbers, slower for high)
+        time.sleep(0.1) 
+        current_val += (st.session_state.target / 50) 
+        
+    # --- FLIGHT ENDED ---
+    st.session_state.mode = "FINISHED"
+    st.rerun()
+
+elif st.session_state.mode == "FINISHED":
     st.markdown(f"""
-        <div class="prediction-box" style="border-color: {color};">
-            <p style="color: {color}; letter-spacing: 2px; font-weight: bold;">{label}</p>
-            <h1 style="font-size: 80px; color: white; margin: 0;">{val}x</h1>
-            <p style="color: gray;">System Accuracy: 87.4% on {casino}</p>
+        <div style="text-align:center; padding:50px; border: 2px solid red; border-radius:20px;">
+            <h1 style="color:red; font-size:60px;">FLEW AWAY!</h1>
+            <h2 style="color:white;">At {st.session_state.target}x</h2>
         </div>
     """, unsafe_allow_html=True)
     
-    if st.button("RESET FOR NEXT ROUND"):
-        st.session_state.state = "WAITING"
+    if st.button("🔄 PREPARE NEXT ROUND"):
+        st.session_state.mode = "WAITING"
         st.rerun()
 
-st.info(f"Current Strategy: Targeting {trend} patterns. Use the sidebar to change trend if the game gets 'Cold'.")
+st.divider()
+st.caption(f"Sync Protocol: {casino} / {risk_level}")
