@@ -6,14 +6,17 @@ from datetime import datetime
 # Page configuration for mobile and desktop
 st.set_page_config(page_title="ICETREX UNIVERSAL PREDICTOR", layout="centered")
 
-st.title("🤖 ICETREX Aviator Bot v3.0")
+st.title("🤖 ICETREX Aviator Bot v3.5")
 st.write("Cross-Platform Utility Tool for Phone & Laptop")
 
-# --- PHASE 1: CASINO SPECIFICS ---
+# --- PHASE 1: EXPANDED CASINO LIST ---
 st.sidebar.header("Configuration")
 casino_choice = st.sidebar.selectbox(
     "Select Casino Platform:", 
-    ["Hollywoodbets", "Betway", "10bet", "SportyBet", "888starz", "Other"]
+    [
+        "LuckyBet", "AfricaBet", "MWOS", "SpinCity", 
+        "Hollywoodbets", "Betway", "10bet", "SportyBet", "Other"
+    ]
 )
 
 st.sidebar.info(f"Connected to: {casino_choice} Server")
@@ -21,7 +24,7 @@ st.sidebar.info(f"Connected to: {casino_choice} Server")
 # --- PHASE 2: DYNAMIC SIGNAL ENGINE ---
 def get_dynamic_signal():
     now = datetime.now()
-    # Unique seed ensures the signal refreshes every 10 seconds
+    # Unique seed refreshes every 10 seconds based on current time
     random.seed(now.minute + now.second // 10) 
     
     chance = random.randint(1, 100)
