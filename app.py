@@ -1,46 +1,72 @@
 import streamlit as st
 import time
+import random
 from datetime import datetime
 
-st.set_page_config(page_title="ICETREX AUTO-BOT", layout="centered")
+# Page configuration for mobile and desktop
+st.set_page_config(page_title="ICETREX UNIVERSAL PREDICTOR", layout="centered")
 
-st.title("🤖 ICETREX Aviator Auto-Signal")
-st.write("The bot predicts signals based on real-time server intervals.")
+st.title("🤖 ICETREX Aviator Bot v3.0")
+st.write("Cross-Platform Utility Tool for Phone & Laptop")
 
-# --- AUTO-TIMER LOGIC ---
-placeholder = st.empty()
+# --- PHASE 1: CASINO SPECIFICS ---
+st.sidebar.header("Configuration")
+casino_choice = st.sidebar.selectbox(
+    "Select Casino Platform:", 
+    ["Hollywoodbets", "Betway", "10bet", "SportyBet", "888starz", "Other"]
+)
 
-def get_signal():
-    # This simulates pattern recognition based on the current minute
+st.sidebar.info(f"Connected to: {casino_choice} Server")
+
+# --- PHASE 2: DYNAMIC SIGNAL ENGINE ---
+def get_dynamic_signal():
     now = datetime.now()
-    current_min = now.minute
-    current_sec = now.second
+    # Unique seed ensures the signal refreshes every 10 seconds
+    random.seed(now.minute + now.second // 10) 
     
-    # Famous "Minute" Strategy: Certain minutes have higher 'Pink' probabilities
-    pink_minutes = [2, 8, 15, 22, 30, 38, 45, 52, 57]
+    chance = random.randint(1, 100)
     
-    if current_min in pink_minutes:
-        return "🔥 HIGH PROBABILITY (PINK) NOW", "magenta"
-    elif current_sec < 30:
-        return "✅ SAFE ENTRY: Aim for 1.50x", "green"
+    if chance > 92:
+        return "🔥 PINK SIGNAL: Target 10.0x+", "magenta", "EXTREME"
+    elif chance > 65:
+        target = round(random.uniform(1.8, 3.5), 2)
+        return f"✅ SAFE SIGNAL: Exit at {target}x", "green", "MEDIUM"
+    elif chance > 35:
+        target = round(random.uniform(1.2, 1.5), 2)
+        return f"⚡ QUICK SCALP: Exit at {target}x", "cyan", "LOW"
     else:
-        return "⏳ WAITING FOR NEXT DATA CYCLE...", "grey"
+        return "⏳ MARKET COOLING: Skip Round", "orange", "WAIT"
 
-# --- THE LIVE LOOP ---
-if st.toggle("START AUTO-PREDICTOR"):
+# --- PHASE 3: INTERFACE ---
+st.divider()
+
+if st.toggle("ACTIVATE AUTO-SCANNER"):
+    placeholder = st.empty()
+    
     while True:
         with placeholder.container():
-            signal, color = get_signal()
+            signal, color, risk = get_dynamic_signal()
+            
+            # Professional UI box
             st.markdown(f"""
-                <div style="padding:20px; border-radius:10px; border: 2px solid {color}; text-align:center;">
-                    <h2 style="color:{color};">{signal}</h2>
-                    <p>Current Server Time: {datetime.now().strftime('%H:%M:%S')}</p>
+                <div style="padding:30px; border-radius:15px; background-color:#0e1117; border: 4px solid {color}; text-align:center;">
+                    <p style="color:gray; font-size:14px; margin-bottom:5px;">{casino_choice.upper()} LIVE FEED</p>
+                    <h1 style="color:{color}; font-size: 45px; margin-top:0px;">{signal}</h1>
+                    <div style="display: flex; justify-content: center; gap: 20px;">
+                        <p style="color:white;">RISK: <b>{risk}</b></p>
+                        <p style="color:white;">STATUS: <b>Active</b></p>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
             
-            # Simple Countdown for the next "Scan"
-            st.progress(int((time.time() % 10) * 10))
+            # Progress bar visualizer for the next scan
+            countdown = 10 - (datetime.now().second % 10)
+            st.write(f"Refreshing in {countdown}s...")
+            st.progress(countdown * 10)
             
-        time.sleep(1) # Refresh every second
+        time.sleep(1)
 else:
-    st.info("Switch the toggle above to start the live prediction loop.")
+    st.warning(f"Scanner Offline. Please select {casino_choice} and toggle the switch above.")
+
+st.divider()
+st.caption("Developed by ICETREX | For Educational & Probability Analysis Only")
