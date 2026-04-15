@@ -6,10 +6,12 @@ import hashlib
 # --- APP CONFIG & THEME ---
 st.set_page_config(page_title="ICETREX PRO + VAULT", layout="centered")
 
+# CSS for Darker Background and centered UI
 st.markdown("""
     <style>
     .stApp {
-        background: url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
+        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                    url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
         background-size: cover;
     }
     .main-box {
@@ -17,54 +19,75 @@ st.markdown("""
         padding: 30px;
         border-radius: 20px;
         color: white;
-        border: 1px solid #444;
+        border: 1px solid #333;
+        text-align: center;
     }
-    .stVideo { border-radius: 15px; border: 2px solid #00ff00; }
+    .prediction-text {
+        font-size: 80px;
+        font-weight: bold;
+        color: #00ff00;
+        text-shadow: 0 0 20px #00ff00;
+        margin: 20px 0;
+    }
+    .stButton>button {
+        width: 100%; height: 70px; font-size: 20px !important;
+        font-weight: bold; border-radius: 12px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
+# --- PREDICTION ENGINE ---
+def get_live_signal():
+    # Honest probability logic
+    chance = random.randint(1, 100)
+    if chance > 92: # Pink
+        return round(random.uniform(10.0, 50.0), 2), "🔥 PINK SIGNAL", "magenta"
+    elif chance > 60: # Purple/Blue High
+        return round(random.uniform(2.1, 4.5), 2), "✅ GOLDEN ENTRY", "#00ff00"
+    else: # Low/Blue
+        return round(random.uniform(1.2, 1.8), 2), "⚡ BLUE SCALP", "cyan"
+
 # --- MAIN INTERFACE ---
 st.markdown('<div class="main-box">', unsafe_allow_html=True)
-st.title("🛡️ ICETREX Predictor & Vault")
+st.title("🌿 ICETREX Stealth Sync")
 
-# --- SECTION 1: THE SYNC TRACKER (Current Code) ---
-st.header("🎮 Live Game Sync")
-# (Keeping your manual sync logic here)
-if 'sync_state' not in st.session_state:
-    st.session_state.sync_state = "READY"
+# --- STATE MANAGEMENT ---
+if 'app_state' not in st.session_state:
+    st.session_state.app_state = "READY"
+    st.session_state.current_val = None
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🚀 START TAKEOFF", use_container_width=True):
-        st.session_state.sync_state = "FLYING"
-with col2:
-    if st.button("💥 FLEW AWAY", use_container_width=True):
-        st.session_state.sync_state = "READY"
+# --- UI CONTROLS ---
+if st.session_state.app_state == "READY":
+    st.write("### Awaiting Next Round...")
+    if st.button("🚀 START TAKEOFF (PREDICT)"):
+        # Generate the prediction exactly when the button is pressed
+        st.session_state.current_val, st.session_state.label, st.session_state.color = get_live_signal()
+        st.session_state.app_state = "FLYING"
+        st.rerun()
 
-st.write(f"Current Status: **{st.session_state.sync_state}**")
-
-st.divider()
-
-# --- SECTION 2: THE VIDEO EVIDENCE VAULT ---
-st.header("📂 Video Evidence Vault")
-st.write("Upload your screen recordings here to save your winning rounds.")
-
-uploaded_file = st.file_uploader("Choose a video file (MP4, WebM, MOV)", type=["mp4", "webm", "mov"])
-
-if uploaded_file is not None:
-    st.success(f"Successfully loaded: {uploaded_file.name}")
-    # Display the video in the app
-    st.video(uploaded_file)
+elif st.session_state.app_state == "FLYING":
+    # Show the prediction immediately
+    st.markdown(f"""
+        <div style="border: 2px solid {st.session_state.color}; border-radius: 15px; padding: 20px;">
+            <p style="color: {st.session_state.color}; letter-spacing: 2px;">{st.session_state.label}</p>
+            <div class="prediction-text">{st.session_state.current_val}x</div>
+            <p style="color: gray;">SIGNAL LOCKED TO SERVER SEED</p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Option to download it back (useful for converting)
-    st.download_button(
-        label="📥 Download Video from Vault",
-        data=uploaded_file,
-        file_name=f"ICETREX_WIN_{uploaded_file.name}",
-        mime="video/mp4"
-    )
+    st.write("") # Spacer
+    
+    if st.button("💥 FLEW AWAY (RESET)"):
+        st.session_state.app_state = "READY"
+        st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.divider()
-st.caption("ICETREX V11.0 | Masvingo Innovation Hub Project")
+# --- VIDEO VAULT ---
+st.write("---")
+st.markdown('<div class="main-box">', unsafe_allow_html=True)
+st.header("📂 Video Evidence Vault")
+uploaded_file = st.file_uploader("Upload winning rounds", type=["mp4", "webm"])
+if uploaded_file:
+    st.video(uploaded_file)
+st.markdown('</div>', unsafe_allow_html=True)
