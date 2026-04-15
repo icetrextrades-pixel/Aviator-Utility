@@ -29,8 +29,13 @@ def check_access():
             }
             .auth-box {
                 background-color: rgba(10, 10, 10, 0.95);
-                padding: 40px; border-radius: 15px; border: 2px solid #00ff00;
+                padding: 30px; border-radius: 15px; border: 2px solid #00ff00;
                 text-align: center;
+            }
+            .download-section {
+                margin-top: 25px;
+                padding-top: 20px;
+                border-top: 1px solid #333;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -38,22 +43,34 @@ def check_access():
         st.markdown('<div class="auth-box">', unsafe_allow_html=True)
         st.title("🛡️ ICETREX ADMIN")
         
-        # We use .strip() to remove accidental spaces at the end
         u_in = st.text_input("👤 USERNAME").strip()
         k_in = st.text_input("🔑 PRODUCT KEY", type="password").strip()
         
         if st.button("UNLOCK SYSTEM", use_container_width=True):
-            # Check exactly against your requested credentials
             if u_in == ADMIN_USER and k_in == ADMIN_KEY:
                 st.session_state.authenticated = True
                 st.session_state.user_name = u_in
-                st.success("Authorized. Loading ICETREX PRO...")
-                time.sleep(1)
                 st.rerun()
             else:
-                st.error("Access Denied: Check spelling and caps.")
+                st.error("Access Denied.")
+
+        # --- NEW DOWNLOAD SECTION ---
+        st.markdown('<div class="download-section">', unsafe_allow_html=True)
+        st.write("📥 **Get the Official App**")
         
-        st.markdown("<br><a style='color:#00ff00;' href='mailto:icetrextrades@gmail.com'>icetrextrades@gmail.com</a>", unsafe_allow_html=True)
+        # Replace with your actual GitHub Raw link
+        apk_url = "https://github.com/YOUR_USERNAME/aviator-utility/raw/main/icetrex_pro.apk"
+        
+        st.markdown(f'''
+            <a href="{apk_url}" target="_blank" style="text-decoration:none;">
+                <button style="width:100%; height:45px; background-color:#00ff00; color:black; border-radius:8px; font-weight:bold; border:none; cursor:pointer;">
+                    📱 DOWNLOAD MOBILE APK
+                </button>
+            </a>
+        ''', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<br><a style='color:#00ff00; font-size:12px;' href='mailto:icetrextrades@gmail.com'>Contact: icetrextrades@gmail.com</a>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         return False
     return True
