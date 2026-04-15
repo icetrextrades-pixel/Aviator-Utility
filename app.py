@@ -14,7 +14,7 @@ st.sidebar.header("Configuration")
 casino_choice = st.sidebar.selectbox(
     "Select Casino Platform:", 
     [
-        "LuckyBet", "AfricaBet", "MWOS", "SpinCity", 
+        "LuckyBets", "AfricaBet", "MWOS", "SpinCity", 
         "Hollywoodbets", "Betway", "10bet", "SportyBet", "Other"
     ]
 )
