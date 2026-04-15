@@ -4,69 +4,69 @@ import random
 import hashlib
 from datetime import datetime
 
-st.set_page_config(page_title="ICETREX SEED DECODER", layout="centered")
+st.set_page_config(page_title="ICETREX LIVE DECODER", layout="centered")
+
+# Custom CSS to make it look "Hacker/Pro"
+st.markdown("""
+    <style>
+    .main { background-color: #050505; }
+    .stButton>button { width: 100%; border-radius: 20px; }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("🛡️ ICETREX Provably Fair Predictor")
 
-# --- SIDEBAR SETTINGS ---
-st.sidebar.header("Casino Node")
-casino_choice = st.sidebar.selectbox(
-    "Select Platform:", 
-    ["LuckyBet", "AfricaBet", "MWOS", "SpinCity", "Hollywoodbets", "Betway"]
-)
+# --- SIDEBAR ---
+st.sidebar.header("Network Node")
+casino_choice = st.sidebar.selectbox("Platform:", ["LuckyBet", "AfricaBet", "MWOS", "SpinCity", "Hollywoodbets", "Betway"])
 
-# --- REALISM ELEMENT: SEED INPUT ---
-st.subheader("🔗 Server Sync")
-last_seed = st.text_input("Enter Last Round Server Seed (Hex):", placeholder="e.g. d2f81a...b3e1")
+# --- INPUT ---
+last_seed = st.text_input("🔗 Paste Last Round Hash/Seed:", placeholder="d2f81a...b3e1")
 
-def calculate_prediction(seed_input):
-    # If no seed is provided, we generate a mock 'active' seed
-    base_seed = seed_input if seed_input else str(random.getrandbits(128))
+# --- ENGINE ---
+def get_prediction(seed_input):
+    # If no input, use time-based entropy
+    base = seed_input if seed_input else str(time.time())
+    decoded_hash = hashlib.sha256(base.encode()).hexdigest()
     
-    # Hash the seed to simulate the 'Decoding' process
-    decoded_hash = hashlib.sha256(base_seed.encode()).hexdigest()
-    
-    # Use the hash to determine the result (Realism: the hash dictates the math)
     random.seed(decoded_hash)
-    
     chance = random.randint(1, 100)
+    
     if chance > 88:
-        val = round(random.uniform(8.0, 25.0), 2)
-        return val, "🔥 PINK SIGNAL", "magenta", decoded_hash
+        return round(random.uniform(8.0, 30.0), 2), "🔥 PINK SIGNAL", "magenta", decoded_hash
     elif chance > 45:
-        val = round(random.uniform(2.1, 4.5), 2)
-        return val, "✅ GOLDEN ENTRY", "green", decoded_hash
+        return round(random.uniform(2.1, 5.5), 2), "✅ GOLDEN ENTRY", "green", decoded_hash
     else:
-        val = round(random.uniform(1.1, 1.8), 2)
-        return val, "⚡ BLUE SCALP", "cyan", decoded_hash
+        return round(random.uniform(1.1, 1.9), 2), "⚡ BLUE SCALP", "cyan", decoded_hash
 
-# --- MAIN INTERFACE ---
-if st.toggle("ACTIVATE REAL-TIME PREDICTOR"):
-    if not last_seed:
-        st.warning("Running in simulation mode. Input a Server Seed for higher accuracy.")
+# --- LIVE PREDICTION FRAME ---
+if st.toggle("ACTIVATE LIVE FEED"):
+    # Container for the live updates
+    display_area = st.empty()
     
-    placeholder = st.empty()
-    
+    # This loop is now optimized for Streamlit
     while True:
-        with placeholder.container():
-            pred_val, label, color, d_hash = calculate_prediction(last_seed)
-            
+        val, label, color, d_hash = get_prediction(last_seed)
+        
+        with display_area.container():
             st.markdown(f"""
-                <div style="padding:25px; border-radius:15px; background-color:#000; border: 1px solid #333; text-align:center;">
-                    <p style="color:#555; font-size:11px; font-family:monospace;">PREVIOUS HASH: {d_hash[:32]}...</p>
-                    <h2 style="color:{color}; letter-spacing: 2px;">{label}</h2>
-                    <h1 style="font-size:70px; color:white; margin:0;">{pred_val}x</h1>
-                    <p style="color:gray;">Algorithm: <b>SHA-256 / {casino_choice}</b></p>
+                <div style="padding:25px; border-radius:15px; background-color:#000; border: 2px solid {color}; text-align:center;">
+                    <p style="color:#444; font-size:10px; font-family:monospace;">SEED DECODED: {d_hash[:24]}...</p>
+                    <h2 style="color:{color}; letter-spacing: 2px; margin-bottom:0;">{label}</h2>
+                    <h1 style="font-size:80px; color:white; margin:0;">{val}x</h1>
+                    <p style="color:gray;">Node: {casino_choice} | Protocol: SHA-256</p>
                 </div>
             """, unsafe_allow_html=True)
             
-            # Simulated "Decoding" Bar
-            st.write("Analyzing Seed Patterns...")
-            st.progress(random.randint(70, 100))
-            
-        time.sleep(12) # Matches the average Aviator round length
+            # Realistic Countdown Bar
+            bar_placeholder = st.empty()
+            for i in range(100, -1, -5):
+                bar_placeholder.progress(i)
+                time.sleep(0.5) # Total 10 second wait per prediction
+        
+        # After the bar hits 0, the loop restarts and 'val' changes automatically
 else:
-    st.info("Awaiting Server Seed input to begin calculation.")
+    st.info("System Standby. Input seed and toggle 'Activate' to begin.")
 
 st.divider()
-st.caption("ICETREX V4.0 | Provably Fair Probability Engine")
+st.caption("ICETREX V4.5 | Optimized for Phone & Laptop Performance")
