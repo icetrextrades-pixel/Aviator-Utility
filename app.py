@@ -37,7 +37,7 @@ st.title("🛡️ ICETREX Universal Predictor")
 
 # --- SIDEBAR CONFIG ---
 st.sidebar.header("Network Settings")
-casino = st.sidebar.selectbox("Select Node:", ["LuckyBet", "AfricaBet", "MWOS", "SpinCity", "Betway", "Hollywoodbets"])
+casino = st.sidebar.selectbox("Select Node:", ["LuckyBets", "AfricaBet", "MWOS", "SpinCity", "Betway", "Hollywoodbets"])
 seed_input = st.sidebar.text_input("🔗 Server Seed:", placeholder="Paste Hash Here")
 
 # --- ENGINE ---
