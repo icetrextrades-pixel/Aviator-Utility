@@ -7,7 +7,7 @@ st.set_page_config(page_title="ICETREX TERMINAL", layout="centered")
 
 # 2. MASTER CREDENTIALS & LINKS
 ADMIN_USER = "Icetrex"
-ADMIN_KEY = "ADMIN-KING"
+ADMIN_KEY = "SOPITO"
 APK_URL = "https://github.com/icetrextrades-pixel/Aviator-Utility/raw/refs/heads/main/app-release.apk"
 WHATSAPP_LINK = "https://wa.me/263779174062"
 MUSIC_URL = "https://www.youtube.com/embed/4D94B37924FCC62804BC?autoplay=1&loop=1&playlist=4D94B37924FCC62804BC"
@@ -18,7 +18,7 @@ if "pass" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state["history"] = []
 
-# 4. ADVANCED CSS (Nature Background, Floating Ads, and Animations)
+# --- 4. ADVANCED CSS (Added Audio Indicator) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -33,38 +33,43 @@ st.markdown(f"""
         border-radius: 15px; border: 1px solid #00ff00; text-align: center;
         backdrop-filter: blur(5px);
     }}
-    /* Floating Ad Style */
     .floating-ad {{
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(0, 255, 0, 0.9);
-        color: black;
-        padding: 10px;
-        border-radius: 10px;
-        font-weight: bold;
-        z-index: 999;
-        text-decoration: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        font-size: 12px;
-    }}
-    /* Pulse Animation */
-    @keyframes pulse-red {{
-        0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }}
-        70% {{ transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }}
-        100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
+        position: fixed; bottom: 20px; right: 20px;
+        background: rgba(0, 255, 0, 0.9); color: black;
+        padding: 10px; border-radius: 10px; font-weight: bold;
+        z-index: 999; text-decoration: none; font-size: 12px;
     }}
     .sync-circle {{
         width: 15px; height: 15px; background: red; border-radius: 50%;
         display: inline-block; margin-right: 10px;
         animation: pulse-red 2s infinite;
     }}
+    @keyframes pulse-red {{
+        0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }}
+        70% {{ transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }}
+        100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# 5. BACKGROUND MUSIC (Hidden Iframe)
+# --- 5. UPDATED BACKGROUND MUSIC (Better Autoplay Support) ---
+# This uses an invisible YouTube player with "allow=autoplay"
 st.components.v1.html(f"""
-    <iframe width="0" height="0" src="{MUSIC_URL}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    <div style="display:none;">
+        <iframe 
+            width="1" height="1" 
+            src="https://www.youtube.com/embed/4D94B37924FCC62804BC?autoplay=1&loop=1&playlist=4D94B37924FCC62804BC&mute=0" 
+            frameborder="0" 
+            allow="autoplay; encrypted-media">
+        </iframe>
+    </div>
+    <script>
+        // Attempt to play on any user click if blocked
+        document.addEventListener('click', function() {{
+            var iframe = document.querySelector('iframe');
+            iframe.src = iframe.src.replace("mute=1", "mute=0");
+        }}, {{once: true}});
+    </script>
 """, height=0)
 
 # 6. LOGIN FUNCTION
@@ -73,12 +78,12 @@ def login():
     st.title("🛡️ ICETREX ADMIN")
     u = st.text_input("USERNAME")
     k = st.text_input("KEY", type="password")
-    if st.button("UNLOCK"):
+    if st.button("ACTIVATE"):
         if u == ADMIN_USER and k == ADMIN_KEY:
             st.session_state["pass"] = True
             st.rerun()
         else:
-            st.error("Denied")
+            st.error("WRONG USERNAME OR KEY!")
     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.write("📲 **Get the App**")
@@ -105,7 +110,7 @@ else:
         </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🚀 GENERATE SIGNAL"):
+    if st.button("🚀 PREDICT SIGNAL"):
         chance = random.randint(1, 100)
         if chance > 90: v, l, c = round(random.uniform(10.0, 35.0), 2), "🔥 PINK", "magenta"
         elif chance > 50: v, l, c = round(random.uniform(2.0, 4.5), 2), "✅ GOLD", "#00ff00"
