@@ -74,23 +74,24 @@ def login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🛡️ ICETREX ADMIN")
     u = st.text_input("USERNAME")
-    k = st.text_input("KEY", type="password")
-    if st.button("ACTIVATE"):
-        
-# Create a list of authorized users and their keys
-authorized_users = {
-    "Icetrex": "SOPITO",
-    "AUSTIN": "tinofa2578",
-    "Osmando": "PRO779"
-}
-
-# Check if the entered username exists and the key matches
-if u in authorized_users and k == authorized_users[u]:
-    st.session_state["pass"] = True
-    st.session_state["start_time"] = time.time()
-    st.rerun()
-        else:
-            st.error("Denied")
+    k = st.text_input("KEY", type="password") 
+if st.button("ACTIVATE"):
+    # Everything below this must be indented (pushed right)
+    
+    # 1. Create the list
+    authorized_users = {
+        "Icetrex": "SOPITO",
+        "AUSTIN": "tinofa2578",
+        "Osmando": "PRO779"
+    }
+    
+    if u in authorized_users and k == authorized_users[u]:
+        st.session_state["pass"] = True
+        st.session_state["start_time"] = time.time()
+        st.success("Access Granted!")
+        st.rerun()
+    else:
+        st.error("Invalid Username or Key") 
     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.write("📲 **Get the App**")
