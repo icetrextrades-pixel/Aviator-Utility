@@ -26,7 +26,6 @@ def check_timer():
     if st.session_state["pass"] and st.session_state["start_time"]:
         now = time.time()
         elapsed = now - st.session_state["start_time"]
-        # 3 hours = 10800 seconds
         if elapsed > 10800:
             st.session_state["pass"] = False
             st.session_state["start_time"] = None
@@ -35,7 +34,7 @@ def check_timer():
         return 10800 - elapsed
     return 0
 
-# 5. ADVANCED CSS
+# 5. ADVANCED CSS (Includes Background and Circular Button Logic)
 st.markdown(f"""
     <style>
     .stApp {{
@@ -66,6 +65,29 @@ st.markdown(f"""
         70% {{ transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }}
         100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
     }}
+
+    /* TARGET ONLY THE SIGNAL BUTTON TO BE ROUND */
+    div[data-testid="stButton"] > button:contains("🚀") {{
+        border-radius: 50% !important;
+        width: 160px !important;
+        height: 160px !important;
+        border: 4px solid #00ff00 !important;
+        background-color: black !important;
+        color: #00ff00 !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+
+    /* KEEP LOGOUT AND OTHER BUTTONS RECTANGULAR */
+    div[data-testid="stButton"] > button:not(:contains("🚀")) {{
+        border-radius: 10px !important;
+        width: 100% !important;
+        height: auto !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -75,23 +97,21 @@ def login():
     st.title("🛡️ ICETREX ADMIN")
     u = st.text_input("USERNAME")
     k = st.text_input("KEY", type="password") 
-if st.button("ACTIVATE"):
-    # Everything below this must be indented (pushed right)
     
-    # 1. Create the list
-    authorized_users = {
-        "Icetrex": "SOPITO",
-        "AUSTIN": "tinofa2578",
-        "Osmando": "PRO779"
-    }
-    
-    if u in authorized_users and k == authorized_users[u]:
-        st.session_state["pass"] = True
-        st.session_state["start_time"] = time.time()
-        st.success("Access Granted!")
-        st.rerun()
-    else:
-        st.error("Invalid Username or Key") 
+    if st.button("ACTIVATE"):
+        authorized_users = {
+            "Icetrex": "SOPITO",
+            "AUSTIN": "tinofa2578",
+            "Osmando": "PRO779"
+        }
+        
+        if u in authorized_users and k == authorized_users[u]:
+            st.session_state["pass"] = True
+            st.session_state["start_time"] = time.time()
+            st.success("Access Granted!")
+            st.rerun()
+        else:
+            st.error("Invalid Username or Key") 
     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.write("📲 **Get the App**")
@@ -126,54 +146,30 @@ else:
     
     # SIGNAL GENERATOR
     if st.button("🚀 PREDICT SIGNAL"):
+        with st.spinner('📡 ANALYZING LIVE DATA...'):
+            time.sleep(5) # 5-second interval
+            
         chance = random.randint(1, 100)
         if chance > 90: v, l, c = round(random.uniform(10.0, 35.0), 2), "🔥 PINK", "magenta"
         elif chance > 50: v, l, c = round(random.uniform(2.0, 4.5), 2), "✅ GOLD", "#00ff00"
         else: v, l, c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
         
-       # Use TRIPLE quotes for CSS blocks to avoid the SyntaxError
-st.markdown("""
-    <style>
-    /* TARGET ONLY THE SIGNAL BUTTON */
-    button[description="🚀 GENERATE SIGNAL"], 
-    div[data-testid="stButton"] > button:first-child:contains("🚀") {
-        border-radius: 50% !important;
-        width: 160px !important;
-        height: 160px !important;
-        border: 4px solid #00ff00 !important;
-        background-color: black !important;
-        color: #00ff00 !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        margin: 0 auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    /* KEEP LOGOUT AND OTHER BUTTONS RECTANGULAR */
-    div[data-testid="stButton"] > button:not(:contains("🚀")) {
-        border-radius: 10px !important;
-        width: 100% !important;
-        height: auto !important;
-    }
-    </style>
-""", unsafe_allow_html=True) 
+        st.markdown(f"<h1 style='color:{c}; font-size:60px; margin:0;'>{v}x</h1>", unsafe_allow_html=True)
+        st.write(f"ENTRY: {l}")
+        
         st.session_state.history.insert(0, f"{v}x ({l})")
         st.session_state.history = st.session_state.history[:4]
 
     # History Display
     if st.session_state.history:
+        st.markdown("<br><p style='text-align:left; color:#777; font-size:12px;'>PREVIOUS SIGNALS:</p>", unsafe_allow_html=True)
         for h in st.session_state.history:
             st.markdown(f"<p style='text-align:left; font-size:14px; border-left: 2px solid #00ff00; padding-left:10px;'>{h}</p>", unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color:#333'>", unsafe_allow_html=True)
 
-  # --- LIVE CHAT SECTION ---
-    st.markdown("---")
+    # --- LIVE CHAT SECTION ---
     st.write("💬 **ICETREX COMMUNITY CHAT**")
-
-    # This is your specific Cbox embed wrapped for Streamlit
     st.components.v1.html("""
         <div style="border: 2px solid #00ff00; border-radius: 15px; overflow: hidden; background: #000;">
             <iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" 
@@ -188,7 +184,7 @@ st.markdown("""
         </div>
     """, height=470)
 
-    # Live Translator link under the chat
+    # Live Translator link
     st.markdown("""
         <div style="background: rgba(0,255,0,0.1); padding: 8px; border-radius: 10px; text-align: center; margin-top: 10px;">
             <a href="https://translate.google.com" target="_blank" style="color:#00ff00; font-size:13px; text-decoration:none; font-weight:bold;">
@@ -198,9 +194,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
     
     # WhatsApp Support
-    st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; border:none; padding:10px; border-radius:10px; font-weight:bold; cursor:pointer;">💬 CONTACT WHATSAPP SUPPORT</button></a>', unsafe_allow_html=True)
+    st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; border:none; padding:10px; border-radius:10px; font-weight:bold; cursor:pointer; margin-top:10px;">💬 CONTACT WHATSAPP SUPPORT</button></a>', unsafe_allow_html=True)
     
     if st.button("Log Out"):
         st.session_state["pass"] = False
         st.rerun()
+        
     st.markdown('</div>', unsafe_allow_html=True)
