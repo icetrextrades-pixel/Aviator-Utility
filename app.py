@@ -132,25 +132,37 @@ else:
 
     st.markdown("<hr style='border-color:#333'>", unsafe_allow_html=True)
 
-    # --- LIVE CHAT SECTION (CBOX INTEGRATION) ---
-    st.markdown("💬 **LIVE COMMUNITY CHAT**")
-    # This uses a public guest chat widget. For a private one, you can create a free account at Cbox.ws
-    st.components.v1.html("""
-        <iframe src="https://www3.cbox.ws/box/?boxid=3534571&boxtag=icetrex" width="100%" height="300" allowtransparency="yes" frameborder="0" marginheight="0" marginwidth="0" scrolling="auto"></iframe>
-    """, height=350)
-    
-    # Live Translator Link
-    st.markdown("""
-        <a href="https://translate.google.com" target="_blank" style="color:#00ff00; font-size:12px; text-decoration:none;">
-            🌍 Live Translator: Translate messages here
-        </a>
-    """, unsafe_allow_html=True)
+  # --- LIVE CHAT SECTION ---
+    st.markdown("---")
+    st.write("💬 **ICETREX COMMUNITY CHAT**")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # This is your specific Cbox embed wrapped for Streamlit
+    st.components.v1.html("""
+        <div style="border: 2px solid #00ff00; border-radius: 15px; overflow: hidden; background: #000;">
+            <iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" 
+                    width="100%" height="450" 
+                    allowtransparency="yes" 
+                    allow="autoplay" 
+                    frameborder="0" 
+                    marginheight="0" 
+                    marginwidth="0" 
+                    scrolling="auto">
+            </iframe>
+        </div>
+    """, height=470)
+
+    # Live Translator link under the chat
+    st.markdown("""
+        <div style="background: rgba(0,255,0,0.1); padding: 8px; border-radius: 10px; text-align: center; margin-top: 10px;">
+            <a href="https://translate.google.com" target="_blank" style="color:#00ff00; font-size:13px; text-decoration:none; font-weight:bold;">
+                🌍 UNKNOWN LANGUAGE? CLICK TO TRANSLATE
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
     
     # WhatsApp Support
     st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; border:none; padding:10px; border-radius:10px; font-weight:bold; cursor:pointer;">💬 CONTACT WHATSAPP SUPPORT</button></a>', unsafe_allow_html=True)
-
+    
     if st.button("Log Out"):
         st.session_state["pass"] = False
         st.rerun()
