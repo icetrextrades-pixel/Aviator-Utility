@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import datetime
+import time
 
 # 1. PAGE SETUP
 st.set_page_config(page_title="ICETREX TERMINAL", layout="centered")
@@ -12,13 +13,29 @@ APK_URL = "https://github.com/icetrextrades-pixel/Aviator-Utility/raw/refs/heads
 WHATSAPP_LINK = "https://wa.me/263779174062"
 MUSIC_URL = "https://www.youtube.com/embed/4D94B37924FCC62804BC?autoplay=1&loop=1&playlist=4D94B37924FCC62804BC"
 
-# 3. INITIALIZE SESSION STATES (Keeping your original 'pass' logic)
+# 3. INITIALIZE SESSION STATES
 if "pass" not in st.session_state:
     st.session_state["pass"] = False
 if "history" not in st.session_state:
     st.session_state["history"] = []
+if "start_time" not in st.session_state:
+    st.session_state["start_time"] = None
 
-# --- 4. ADVANCED CSS (Added Audio Indicator) ---
+# 4. TIMER LOGIC (3-Hour Limit)
+def check_timer():
+    if st.session_state["pass"] and st.session_state["start_time"]:
+        now = time.time()
+        elapsed = now - st.session_state["start_time"]
+        # 3 hours = 10800 seconds
+        if elapsed > 10800:
+            st.session_state["pass"] = False
+            st.session_state["start_time"] = None
+            st.warning("Session Expired (3-Hour Limit Reached)")
+            st.rerun()
+        return 10800 - elapsed
+    return 0
+
+# 5. ADVANCED CSS
 st.markdown(f"""
     <style>
     .stApp {{
@@ -52,26 +69,6 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. UPDATED BACKGROUND MUSIC (Better Autoplay Support) ---
-# This uses an invisible YouTube player with "allow=autoplay"
-st.components.v1.html(f"""
-    <div style="display:none;">
-        <iframe 
-            width="1" height="1" 
-            src="https://www.youtube.com/embed/4D94B37924FCC62804BC?autoplay=1&loop=1&playlist=4D94B37924FCC62804BC&mute=0" 
-            frameborder="0" 
-            allow="autoplay; encrypted-media">
-        </iframe>
-    </div>
-    <script>
-        // Attempt to play on any user click if blocked
-        document.addEventListener('click', function() {{
-            var iframe = document.querySelector('iframe');
-            iframe.src = iframe.src.replace("mute=1", "mute=0");
-        }}, {{once: true}});
-    </script>
-""", height=0)
-
 # 6. LOGIN FUNCTION
 def login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
@@ -81,16 +78,19 @@ def login():
     if st.button("ACTIVATE"):
         if u == ADMIN_USER and k == ADMIN_KEY:
             st.session_state["pass"] = True
+            st.session_state["start_time"] = time.time()
             st.rerun()
         else:
-            st.error("WRONG USERNAME OR KEY!")
+            st.error("Denied")
     
     st.markdown("<hr>", unsafe_allow_html=True)
     st.write("📲 **Get the App**")
     st.markdown(f'<a href="{APK_URL}" target="_blank"><button style="width:100%; height:40px; background:#00ff00; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">DOWNLOAD APK</button></a>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 7. EXECUTION
+# 7. MAIN EXECUTION
+remaining_time = check_timer()
+
 if not st.session_state["pass"]:
     login()
 else:
@@ -100,16 +100,21 @@ else:
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🌿 ICETREX PRO V.12")
     
+    # Session Timer Display
+    mins_left = int(remaining_time // 60)
+    st.markdown(f"<p style='color:#777; font-size:12px;'>Session Expires in: {mins_left} minutes</p>", unsafe_allow_html=True)
+    
     # Live Sync Indicator
-    now = datetime.datetime.now().strftime("%H:%M:%S")
+    now_time = datetime.datetime.now().strftime("%H:%M:%S")
     st.markdown(f"""
         <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; margin-bottom: 20px;">
             <span class="sync-circle"></span>
             <span style="color:red; font-weight:bold;">LIVE SYNC CONNECTED</span><br>
-            <small>WAITING FOR ROUND... | SERVER TIME: {now}</small>
+            <small>WAITING FOR ROUND... | SERVER TIME: {now_time}</small>
         </div>
     """, unsafe_allow_html=True)
     
+    # SIGNAL GENERATOR
     if st.button("🚀 PREDICT SIGNAL"):
         chance = random.randint(1, 100)
         if chance > 90: v, l, c = round(random.uniform(10.0, 35.0), 2), "🔥 PINK", "magenta"
@@ -117,28 +122,34 @@ else:
         else: v, l, c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
         
         st.markdown(f"<h1 style='color:{c}; font-size:60px; margin:0;'>{v}x</h1>", unsafe_allow_html=True)
-        st.write(f"ENTRY: {l}")
-        
-        # Update History (Last 4)
         st.session_state.history.insert(0, f"{v}x ({l})")
         st.session_state.history = st.session_state.history[:4]
 
     # History Display
     if st.session_state.history:
-        st.markdown("<br><p style='text-align:left; color:#777; font-size:12px;'>PREVIOUS SIGNALS:</p>", unsafe_allow_html=True)
         for h in st.session_state.history:
             st.markdown(f"<p style='text-align:left; font-size:14px; border-left: 2px solid #00ff00; padding-left:10px;'>{h}</p>", unsafe_allow_html=True)
 
     st.markdown("<hr style='border-color:#333'>", unsafe_allow_html=True)
+
+    # --- LIVE CHAT SECTION (CBOX INTEGRATION) ---
+    st.markdown("💬 **LIVE COMMUNITY CHAT**")
+    # This uses a public guest chat widget. For a private one, you can create a free account at Cbox.ws
+    st.components.v1.html("""
+        <iframe src="https://www3.cbox.ws/box/?boxid=3534571&boxtag=icetrex" width="100%" height="300" allowtransparency="yes" frameborder="0" marginheight="0" marginwidth="0" scrolling="auto"></iframe>
+    """, height=350)
     
-    # WhatsApp Support
-    st.markdown(f"""
-        <a href="{WHATSAPP_LINK}" target="_blank" style="text-decoration:none;">
-            <button style="width:100%; background:#25D366; color:white; border:none; padding:10px; border-radius:10px; font-weight:bold; cursor:pointer;">
-                💬 CONTACT WHATSAPP SUPPORT
-            </button>
+    # Live Translator Link
+    st.markdown("""
+        <a href="https://translate.google.com" target="_blank" style="color:#00ff00; font-size:12px; text-decoration:none;">
+            🌍 Live Translator: Translate messages here
         </a>
     """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # WhatsApp Support
+    st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" style="text-decoration:none;"><button style="width:100%; background:#25D366; color:white; border:none; padding:10px; border-radius:10px; font-weight:bold; cursor:pointer;">💬 CONTACT WHATSAPP SUPPORT</button></a>', unsafe_allow_html=True)
 
     if st.button("Log Out"):
         st.session_state["pass"] = False
