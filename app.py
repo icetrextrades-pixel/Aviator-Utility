@@ -131,7 +131,10 @@ else:
         elif chance > 50: v, l, c = round(random.uniform(2.0, 4.5), 2), "✅ GOLD", "#00ff00"
         else: v, l, c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
         
-        st.markdown(f"/* TARGET ONLY THE SIGNAL BUTTON */
+       # Use TRIPLE quotes for CSS blocks to avoid the SyntaxError
+st.markdown("""
+    <style>
+    /* TARGET ONLY THE SIGNAL BUTTON */
     button[description="🚀 GENERATE SIGNAL"], 
     div[data-testid="stButton"] > button:first-child:contains("🚀") {
         border-radius: 50% !important;
@@ -153,7 +156,9 @@ else:
         border-radius: 10px !important;
         width: 100% !important;
         height: auto !important;
-    }", unsafe_allow_html=True)
+    }
+    </style>
+""", unsafe_allow_html=True) 
         st.session_state.history.insert(0, f"{v}x ({l})")
         st.session_state.history = st.session_state.history[:4]
 
