@@ -76,10 +76,19 @@ def login():
     u = st.text_input("USERNAME")
     k = st.text_input("KEY", type="password")
     if st.button("ACTIVATE"):
-        if u == ADMIN_USER and k == ADMIN_KEY:
-            st.session_state["pass"] = True
-            st.session_state["start_time"] = time.time()
-            st.rerun()
+        
+# Create a list of authorized users and their keys
+authorized_users = {
+    "Icetrex": "SOPITO",
+    "AUSTIN": "tinofa2578",
+    "Osmando": "PRO779"
+}
+
+# Check if the entered username exists and the key matches
+if u in authorized_users and k == authorized_users[u]:
+    st.session_state["pass"] = True
+    st.session_state["start_time"] = time.time()
+    st.rerun()
         else:
             st.error("Denied")
     
@@ -121,7 +130,29 @@ else:
         elif chance > 50: v, l, c = round(random.uniform(2.0, 4.5), 2), "✅ GOLD", "#00ff00"
         else: v, l, c = round(random.uniform(1.2, 1.9), 2), "⚡ BLUE", "cyan"
         
-        st.markdown(f"<h1 style='color:{c}; font-size:60px; margin:0;'>{v}x</h1>", unsafe_allow_html=True)
+        st.markdown(f"/* TARGET ONLY THE SIGNAL BUTTON */
+    button[description="🚀 GENERATE SIGNAL"], 
+    div[data-testid="stButton"] > button:first-child:contains("🚀") {
+        border-radius: 50% !important;
+        width: 160px !important;
+        height: 160px !important;
+        border: 4px solid #00ff00 !important;
+        background-color: black !important;
+        color: #00ff00 !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* KEEP LOGOUT AND OTHER BUTTONS RECTANGULAR */
+    div[data-testid="stButton"] > button:not(:contains("🚀")) {
+        border-radius: 10px !important;
+        width: 100% !important;
+        height: auto !important;
+    }", unsafe_allow_html=True)
         st.session_state.history.insert(0, f"{v}x ({l})")
         st.session_state.history = st.session_state.history[:4]
 
