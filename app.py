@@ -25,22 +25,15 @@ st.markdown("""
         border: 1px solid #00d4ff; text-align: center; box-shadow: 0 0 20px #00d4ff22;
         margin-bottom: 20px;
     }
-    /* Button Styling */
     div[data-testid="stButton"] > button {
-        width: 100%; border-radius: 10px; background: #000; color: #00d4ff; 
-        border: 1px solid #00d4ff; font-weight: bold; transition: 0.3s;
+        width: 100%; border-radius: 10px; background: #000 !important; color: #00d4ff !important; 
+        border: 1px solid #00d4ff !important; font-weight: bold;
     }
-    div[data-testid="stButton"] > button:hover { background: #00d4ff; color: #000; }
-    
-    /* Predict Button Special Styling */
     .predict-container > div > button {
         height: 80px !important; font-size: 24px !important; 
         border: 2px solid #ff00ff !important; color: #ff00ff !important;
         box-shadow: 0 0 15px #ff00ff44 !important;
     }
-    
-    .apk-btn { background: #00ff00 !important; color: #000 !important; border: none !important; }
-    .wa-btn { background: #25D366 !important; color: #fff !important; border: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -52,33 +45,35 @@ def calculate_signal(data):
         floats = [float(x.replace('x','')) for x in data if 'x' in str(x)]
         if not floats: return 1.85
         avg = sum(floats[:3]) / 3
+        # Einstein Pattern: Low avg predicts imminent burst
         return round(random.uniform(2.8, 12.0), 2) if avg < 2.0 else round(random.uniform(1.15, 1.98), 2)
-    except: return 2.10
+    except:
+        return 2.10
 
 # ==============================================================================
-# 4. VIEW: SYNC (THE ORDER OF NUMBERS)
+# 4. VIEW: SYNC (ORDER: MOST RECENT -> OLDEST)
 # ==============================================================================
 def show_sync():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🛰️ SYSTEM SYNCHRONIZATION")
-    st.write("### IMPORTANT: ORDER OF MULTIPLIERS")
-    st.info("Look at your game history. Enter the numbers starting from the **most recent** (the one that just happened) to the **oldest**.")
+    st.info("ORDER: Enter the last 3 results from left to right (Newest to Oldest).")
     
     col1, col2, col3 = st.columns(3)
-    with col1: r1 = st.text_input("1st Recent", placeholder="e.g. 1.54")
-    with col2: r2 = st.text_input("2nd Recent", placeholder="e.g. 12.01")
-    with col3: r3 = st.text_input("3rd Recent", placeholder="e.g. 1.08")
+    with col1: r1 = st.text_input("1st Recent", placeholder="Newest")
+    with col2: r2 = st.text_input("2nd Recent", placeholder="Previous")
+    with col3: r3 = st.text_input("3rd Recent", placeholder="Oldest")
     
     if st.button("LOCK & INITIALIZE"):
         if r1 and r2 and r3:
             st.session_state.history = [f"{r1}x", f"{r2}x", f"{r3}x"]
             st.session_state.synced = True
             st.rerun()
-        else: st.warning("Fill all 3 fields.")
+        else:
+            st.warning("All 3 fields are required.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. VIEW: DASHBOARD (APP, WA, CHAT)
+# 5. VIEW: DASHBOARD
 # ==============================================================================
 def show_dashboard():
     # Top Utility Bar
@@ -93,7 +88,8 @@ def show_dashboard():
     
     st.markdown('<div class="predict-container">', unsafe_allow_html=True)
     if st.button("🚀 PREDICT NEXT SIGNAL"):
-        with st.spinner("ANALYZING LIVE DATA..."): time.sleep(2)
+        with st.spinner("ANALYZING LIVE DATA..."):
+            time.sleep(2)
         v = calculate_signal(st.session_state.history)
         color = "#ff00ff" if v >= 5 else "#ffff00" if v >= 2 else "#00d4ff"
         st.markdown(f"""
@@ -116,7 +112,7 @@ def show_dashboard():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. LOGIN
+# 6. VIEW: LOGIN
 # ==============================================================================
 def show_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
@@ -127,10 +123,16 @@ def show_login():
         if u == "Icetrex" and k == "SOPITO":
             st.session_state.pass = True
             st.rerun()
-        else: st.error("DENIED")
+        else:
+            st.error("ACCESS DENIED")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# MAIN EXECUTION
-if not st.session_state.pass: show_login()
-elif not st.session_state.synced: show_sync()
-else: show_dashboard()
+# ==============================================================================
+# 7. EXECUTION FLOW (FIXED SYNTAX)
+# ==============================================================================
+if not st.session_state.pass:
+    show_login()
+elif not st.session_state.synced:
+    show_sync()
+else:
+    show_dashboard()
