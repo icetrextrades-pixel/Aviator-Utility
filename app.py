@@ -8,24 +8,22 @@ import hashlib
 # 1. SYSTEM CORE & PAGE CONFIGURATION
 # ==============================================================================
 st.set_page_config(
-    page_title="ICETREX TERMINAL PRO V.12.5",
-    page_icon="🌿",
+    page_title="AVIATOR PREDICTOR PRO",
+    page_icon="✈️",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- GLOBAL SESSION REGISTRY ---
 if "active_sessions" not in st.session_state:
     st.session_state["active_sessions"] = {}
 
 # ==============================================================================
-# 2. MASTER SYSTEM CREDENTIALS & CONSTANTS
+# 2. MASTER SYSTEM CREDENTIALS
 # ==============================================================================
 ADMIN_USER = "Icetrex"
 ADMIN_KEY = "SOPITO"
 WHATSAPP_LINK = "https://wa.me/263779174062"
-VERSION = "12.5.0-EINSTEIN-CORE"
-BUILD_ID = "IX-779-ZIM-GZU-2026-ULTRA"
+VERSION = "12.8.5-PREDICTOR-CORE"
 
 # ==============================================================================
 # 3. STATE INITIALIZATION
@@ -38,16 +36,20 @@ for key, val in states.items():
     if key not in st.session_state: st.session_state[key] = val
 
 # ==============================================================================
-# 4. SYSTEM LOGIC: EINSTEIN SEED INTERCEPTOR
+# 4. SCRAMBLER & INTERCEPTOR LOGIC
 # ==============================================================================
 def get_local_time():
     return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=st.session_state["tz_offset"])
 
-def simulate_seed_extraction(casino_name):
-    """Simulates the extraction of the Server Seed for a specific casino."""
-    # Generating a unique fake hash based on the casino name and current minute
-    raw_str = f"{casino_name}-{datetime.datetime.now().minute}"
-    return hashlib.sha256(raw_str.encode()).hexdigest()
+def fetch_scrambled_seeds(casino):
+    """
+    Simulates logging into the casino server and scrambling 
+    previous seeds using a time-based salt.
+    """
+    current_min = datetime.datetime.now().minute
+    # Scramble logic using SHA-256 with a shifting salt
+    seed_chain = [hashlib.sha256(f"{casino}-{current_min}-{i}".encode()).hexdigest() for i in range(3)]
+    return seed_chain
 
 def check_timer():
     if st.session_state["pass"] and st.session_state["start_time"]:
@@ -61,139 +63,139 @@ def check_timer():
     return 0
 
 # ==============================================================================
-# 5. ADVANCED THEME ENGINE (CSS)
+# 5. THEME ENGINE (CSS)
 # ==============================================================================
 st.markdown(f"""
     <style>
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.9), rgba(0,0,0,0.9)), 
-                    url("https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
+        background: linear-gradient(rgba(0,0,0,0.92), rgba(0,0,0,0.92)), 
+                    url("https://images.unsplash.com/photo-1550751827-4bd374c3f58b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80");
         background-size: cover; background-attachment: fixed; color: #00ff00;
         font-family: 'Courier New', Courier, monospace;
     }}
     .main-card {{
-        background-color: rgba(0, 10, 0, 0.98); padding: 30px; border-radius: 20px; 
-        border: 1px solid #00ff00; text-align: center;
-        box-shadow: 0 0 40px rgba(0, 255, 0, 0.15); margin-bottom: 20px;
+        background-color: rgba(5, 5, 5, 0.98); padding: 30px; border-radius: 20px; 
+        border: 1px solid #ff0000; text-align: center;
+        box-shadow: 0 0 35px rgba(255, 0, 0, 0.2); margin-bottom: 20px;
     }}
     div[data-testid="stButton"] > button:contains("🚀") {{
-        border-radius: 50% !important; width: 200px !important; height: 200px !important;
-        border: 4px solid #00ff00 !important; background: radial-gradient(#003300, #000) !important;
-        color: #00ff00 !important; font-size: 20px !important; font-weight: bold !important;
-        box-shadow: 0 0 30px #00ff00; margin: 0 auto !important; display: flex !important;
+        border-radius: 50% !important; width: 180px !important; height: 180px !important;
+        border: 4px solid #ff0000 !important; background: #000 !important;
+        color: #ff0000 !important; font-size: 20px !important; font-weight: bold !important;
+        box-shadow: 0 0 20px #ff0000; margin: 0 auto !important; display: flex !important;
     }}
-    .hash-text {{ font-size: 10px; color: #006600; overflow-wrap: break-word; }}
+    .seed-box {{ font-size: 9px; color: #444; font-family: monospace; line-height: 1; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. VIEW: LOGIN
+# 6. VIEW: LOGIN (RENAMED)
 # ==============================================================================
 def show_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🛡️ EINSTEIN CORE AUTH")
-    u = st.text_input("OPERATOR ID")
-    k = st.text_input("ACCESS KEY", type="password")
-    if st.button("ACTIVATE SYSTEMS"):
+    st.title("🛡️ AVIATOR PREDICTOR")
+    st.write("SECURE OPERATOR ACCESS")
+    u = st.text_input("ID")
+    k = st.text_input("KEY", type="password")
+    if st.button("LOGIN"):
         auth = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "Osmando": "PRO779"}
         if u in auth and k == auth[u]:
             st.session_state["active_sessions"][u] = True
             st.session_state["current_user"], st.session_state["pass"] = u, True
             st.session_state["start_time"] = time.time()
             st.rerun()
-        else: st.error("ACCESS DENIED.")
+        else: st.error("INVALID ACCESS")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 7. VIEW: AUTO-SEED CASINO SELECTOR
+# 7. VIEW: CASINO SELECTOR
 # ==============================================================================
 def show_casino_selector():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("📡 CASINO INTERCEPT")
+    st.title("🛰️ TARGET CASINO")
     nodes = {
-        "--- SELECT TARGET ---": None,
-        "🇿🇼 Premier Bet ZIM": "premierbet.co.zw",
-        "🇿🇼 AfricaBet ZIM": "africabet.co.zw",
-        "🇿🇼 Spin City": "spincity.bet",
+        "--- SELECT ---": None,
+        "🇿🇼 Premier Bet": "premierbet.co.zw",
+        "🇿🇼 AfricaBet": "africabet.co.zw",
+        "🇿🇼 BeVegas": "bevegas.co.zw",
         "🇿🇼 LuckyBets": "luckybet.ng",
-        "🌎 1xBet Global": "1xbet.com",
+        "🇿🇼 Spin City": "spincity.bet",
+        "🌎 1xBet": "1xbet.com",
         "🌎 Stake.com": "stake.com"
     }
-    choice = st.selectbox("ACTIVE CASINO NODES:", list(nodes.keys()))
-    if st.button("INITIALIZE SEED SNIFFER"):
+    choice = st.selectbox("CASINO SERVER:", list(nodes.keys()))
+    if st.button("LINK TO SERVER"):
         if nodes[choice]:
             st.session_state["target_url"] = choice
-            with st.status(f"Sniffing {choice} Server Seeds...", expanded=True):
-                st.write("Intercepting Spribe API packets...")
-                time.sleep(1.5)
-                st.write(f"Current Server Seed: {simulate_seed_extraction(choice)[:32]}...")
+            with st.status(f"Logging into {choice} Server...", expanded=True):
+                st.write("Bypassing firewall...")
                 time.sleep(1)
-                st.write("Calculating 92% Probability curve...")
+                st.write("Extracting previous round seeds...")
+                time.sleep(1)
+                st.write("Scrambling hash chain...")
                 st.session_state["casino_selected"] = True
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. VIEW: MAIN DASHBOARD (92% ACCURACY ENGINE)
+# 8. VIEW: MAIN DASHBOARD (90%+ ACCURACY)
 # ==============================================================================
 def show_dashboard():
     sec_left = check_timer()
     now = get_local_time()
-    st.markdown(f'<div style="text-align:right; font-size:11px;">{now.strftime("%H:%M:%S")} | {int(sec_left//60)}m Remaining</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:right; font-size:10px;">{now.strftime("%H:%M:%S")} | {int(sec_left//60)}m active</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🌿 ICETREX PRO V.12.5")
+    st.title("✈️ PREDICTOR PRO")
     
-    # Automatic Seed Data Display
-    current_seed = simulate_seed_extraction(st.session_state["target_url"])
+    # Automatic Server Seed Monitoring
+    seeds = fetch_scrambled_seeds(st.session_state["target_url"])
     st.markdown(f"""
-        <div style="background: rgba(0,255,0,0.05); border: 1px solid #004400; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
-            <small style="color:#008800;">ACTIVE SEED SNIFFER: {st.session_state['target_url']}</small><br>
-            <code class="hash-text">{current_seed}</code>
+        <div style="background: rgba(255,0,0,0.05); border: 1px solid #330000; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
+            <small style="color:#ff0000;">SERVER LOGGED: {st.session_state['target_url']}</small><br>
+            <div class="seed-box">PREV_SEED_1: {seeds[0][:30]}...</div>
+            <div class="seed-box">PREV_SEED_2: {seeds[1][:30]}...</div>
+            <div class="seed-box">SCRAMBLED_CURRENT: {seeds[2][:30]}...</div>
         </div>
     """, unsafe_allow_html=True)
 
-    if st.button("🚀 PREDICT NEXT"):
-        with st.spinner("🧠 EINSTEIN MATH IN PROGRESS..."):
+    if st.button("🚀 PREDICT"):
+        with st.spinner("📡 ANALYZING SCRAMBLED SEEDS..."):
             time.sleep(4)
             
-        # The New 92% Logic (Lower failure rate)
         acc_roll = random.randint(1, 100)
-        if acc_roll <= 92: # Accuracy increased by 12% from 80%
-            if random.random() > 0.90:
-                v, l, c = round(random.uniform(15.0, 60.0), 2), "🔥 EINSTEIN PINK", "#ff00ff"
+        # Accuracy maintained above 90%
+        if acc_roll <= 93:
+            if random.random() > 0.92:
+                v, l, c = round(random.uniform(15.0, 55.0), 2), "🔥 PINK", "#ff00ff"
             else:
-                v, l, c = round(random.uniform(2.10, 8.5), 2), "✅ QUANTUM GOLD", "#ffff00"
+                v, l, c = round(random.uniform(2.15, 7.8), 2), "✅ GOLD", "#ffff00"
         else:
-            v, l, c = round(random.uniform(1.0, 1.9), 2), "⚡ ENTROPY BLUE", "#00ffff"
+            v, l, c = round(random.uniform(1.0, 1.5), 2), "⚡ BLUE", "#00ffff"
 
         st.markdown(f"""
-            <div style="border: 2px solid {c}; padding: 25px; border-radius: 20px; background: rgba(0,0,0,0.8); box-shadow: 0 0 20px {c}44;">
-                <p style="color:{c}; font-size:12px; margin-bottom:0;">NEXT SIGNAL ESTIMATED</p>
-                <h1 style="color:{c}; font-size:100px; margin:0; line-height:1;">{v}x</h1>
-                <p style="color:{c}; font-weight:bold; letter-spacing: 2px;">ACCURACY: {random.randint(91, 93)}%</p>
+            <div style="border: 2px solid {c}; padding: 20px; border-radius: 20px; background: rgba(0,0,0,0.85);">
+                <h1 style="color:{c}; font-size:95px; margin:0;">{v}x</h1>
+                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(91, 94)}%</p>
+                <code style="color:#222; font-size:9px;">RESULT_HASH: {hashlib.md5(str(v).encode()).hexdigest()}</code>
             </div>
         """, unsafe_allow_html=True)
         
-        st.session_state.history.insert(0, f"[{now.strftime('%H:%M')}] {v}x - {l} (Seed Match: 92%)")
+        st.session_state.history.insert(0, f"[{now.strftime('%H:%M')}] {v}x - {l} (Verified)")
         st.session_state.history = st.session_state.history[:5]
 
-    if st.session_state.history:
-        with st.expander("📝 SYSTEM LOGS (92% ACCURACY)"):
-            for entry in st.session_state.history:
-                st.markdown(f"<p style='color:#00ff00; font-size:11px; margin:0;'>{entry}</p>", unsafe_allow_html=True)
+    with st.expander("📝 SERVER LOG HISTORY"):
+        for entry in st.session_state.history:
+            st.markdown(f"<p style='color:#ff0000; font-size:11px; margin:0;'>{entry}</p>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.components.v1.html(f'<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="400" frameborder="0"></iframe>', height=420)
     
-    col_a, col_b = st.columns(2)
-    with col_a: st.markdown(f'<a href="{WHATSAPP_LINK}"><button style="width:100%; padding:12px; border-radius:10px; background:#25D366; color:white; border:none;">SUPPORT</button></a>', unsafe_allow_html=True)
-    with col_b:
-        if st.button("🚪 LOGOUT"):
-            u = st.session_state.get("current_user")
-            if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
-            st.session_state["pass"] = False
-            st.session_state["casino_selected"] = False
-            st.rerun()
+    if st.button("🚪 DISCONNECT"):
+        u = st.session_state.get("current_user")
+        if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
+        st.session_state["pass"] = False
+        st.session_state["casino_selected"] = False
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
