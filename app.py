@@ -118,7 +118,7 @@ def show_login():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 7. VIEW: CASINO SELECTOR (FIXED FLOW)
+# 7. VIEW: CASINO SELECTOR
 # ==============================================================================
 def show_casino_selector():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
@@ -127,7 +127,7 @@ def show_casino_selector():
     
     casino_nodes = {
         "--- SELECT ZIMBABWE LICENSED ---": None,
-        "🇿🇼 Premier Bet Zimbabwe": "https://www.premierbet.co.zw/",
+        "🇿🇼 Premier Bet Zimbabwe": "https://www.premierbet.com/zw/",
         "🇿🇼 AfricaBet": "https://www.africabet.co.zw/",
         "🇿🇼 BeVegas": "https://bevegas.co.zw/",
         "🇿🇼 LuckyBets": "https://www.luckybet.ng/",
@@ -164,7 +164,6 @@ def show_dashboard():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🌿 ICETREX PRO")
     
-    # Live Sync Indicator
     st.markdown(f"""
         <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border-left: 5px solid #ff0000; margin-bottom: 25px;">
             <b style="color:#ff0000;">SYNCED TO: {st.session_state['target_url']}</b><br>
@@ -177,7 +176,6 @@ def show_dashboard():
             time.sleep(3)
             
         acc_roll = random.randint(1, 100)
-        # 78-80% Accuracy Logic
         if acc_roll <= 80:
             if random.random() > 0.88:
                 v, l, c = round(random.uniform(12.0, 48.0), 2), "🔥 PINK MOON", "#ff00ff"
@@ -189,5 +187,40 @@ def show_dashboard():
         st.markdown(f"""
             <div style="border: 2px solid {c}; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.7);">
                 <h1 style="color:{c}; font-size:90px; margin:0;">{v}x</h1>
-                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(78, 8)}
-    """, unsafe_allow_html=True)
+                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(78, 80)}%</p>
+                <code style="color:#333; font-size:9px;">SEED: {hex(random.getrandbits(128))}</code>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.session_state.history.insert(0, f"[{local_now.strftime('%H:%M')}] {v}x ({l})")
+        st.session_state.history = st.session_state.history[:5]
+
+    if st.session_state.history:
+        with st.expander("📝 SYSTEM LOGS"):
+            for entry in st.session_state.history:
+                st.markdown(f"<p style='color:#00ff00; font-size:12px; margin:0;'>{entry}</p>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.components.v1.html(f'<div style="border: 1px solid #00ff00; border-radius: 15px; overflow: hidden;"><iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="400" frameborder="0"></iframe></div>', height=420)
+    
+    col_a, col_b = st.columns(2)
+    with col_a: 
+        st.markdown(f'<a href="{WHATSAPP_LINK}"><button style="width:100%; padding:12px; border-radius:10px; background:#25D366; color:white; border:none;">SUPPORT</button></a>', unsafe_allow_html=True)
+    with col_b:
+        if st.button("🚪 DISCONNECT"):
+            u = st.session_state.get("current_user")
+            if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
+            st.session_state["pass"] = False
+            st.session_state["casino_selected"] = False
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ==============================================================================
+# 9. EXECUTION FLOW (THE CRITICAL PART THAT WAS MISSING)
+# ==============================================================================
+if not st.session_state["pass"]:
+    show_login()
+elif not st.session_state["casino_selected"]:
+    show_casino_selector()
+else:
+    show_dashboard()
