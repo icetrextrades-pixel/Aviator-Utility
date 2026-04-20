@@ -57,7 +57,7 @@ def show_login():
     u = st.text_input("ID")
     k = st.text_input("KEY", type="password")
     if st.button("ACTIVATE"):
-        if u == "Icetrex" and k == "SOPITO",
+        if u == "Icetrex" and k == "SOPITO":
             u == "AUSTIN" and k == "tinofa2578":
             st.session_state["pass"] = True
             st.rerun()
