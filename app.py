@@ -56,9 +56,17 @@ def show_login():
     st.title("🛡️ OPERATOR LOGIN")
     u = st.text_input("ID")
     k = st.text_input("KEY", type="password")
+    
     if st.button("ACTIVATE"):
-        if u == "Icetrex" and k == "SOPITO":
-            u == "AUSTIN" and k == "tinofa2578",
+        # Add all your users here in one place
+        authorized_users = {
+            "Icetrex": "SOPITO",
+            "AUSTIN": "tinofa2578",
+            "BIKO": "PRO779"
+        }
+        
+        # This checks if the ID exists and if the key matches
+        if u in authorized_users and authorized_users[u] == k:
             st.session_state["pass"] = True
             st.rerun()
         else:
