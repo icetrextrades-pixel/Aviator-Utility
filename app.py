@@ -189,4 +189,4 @@ def show_dashboard():
         st.markdown(f"""
             <div style="border: 2px solid {c}; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.7);">
                 <h1 style="color:{c}; font-size:90px; margin:0;">{v}x</h1>
-                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(78, 8)
+                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(78, 8)}
