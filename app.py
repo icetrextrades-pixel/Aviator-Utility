@@ -13,7 +13,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- GLOBAL SESSION REGISTRY ---
 if "active_sessions" not in st.session_state:
     st.session_state["active_sessions"] = {}
 
@@ -22,41 +21,33 @@ if "active_sessions" not in st.session_state:
 # ==============================================================================
 ADMIN_USER = "Icetrex"
 ADMIN_KEY = "SOPITO"
-APK_URL = "https://github.com/icetrextrades-pixel/Aviator-Utility/raw/refs/heads/main/app-release.apk"
 WHATSAPP_LINK = "https://wa.me/263779174062"
-VERSION = "12.0.9-ULTRA"
+VERSION = "12.1.0-ULTRA"
 BUILD_ID = "IX-779-ZIM-GZU-2026"
 
 # ==============================================================================
 # 3. STATE INITIALIZATION
 # ==============================================================================
-if "pass" not in st.session_state:
-    st.session_state["pass"] = False
-if "casino_selected" not in st.session_state:
-    st.session_state["casino_selected"] = False
-if "target_url" not in st.session_state:
-    st.session_state["target_url"] = ""
-if "history" not in st.session_state:
-    st.session_state["history"] = []
-if "start_time" not in st.session_state:
-    st.session_state["start_time"] = None
-if "current_user" not in st.session_state:
-    st.session_state["current_user"] = None
+states = {
+    "pass": False, "casino_selected": False, "target_url": "",
+    "history": [], "start_time": None, "current_user": None, "tz_offset": 2
+}
+for key, val in states.items():
+    if key not in st.session_state: st.session_state[key] = val
 
 # ==============================================================================
-# 4. SYSTEM LOGIC: TIMER & SECURITY
+# 4. SYSTEM LOGIC: TIMER & LOCAL TIME
 # ==============================================================================
+def get_local_time():
+    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=st.session_state["tz_offset"])
+
 def check_timer():
     if st.session_state["pass"] and st.session_state["start_time"]:
-        now = time.time()
-        elapsed = now - st.session_state["start_time"]
+        elapsed = time.time() - st.session_state["start_time"]
         if elapsed > 10800:
             u = st.session_state.get("current_user")
-            if u in st.session_state["active_sessions"]:
-                del st.session_state["active_sessions"][u]
+            if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
             st.session_state["pass"] = False
-            st.session_state["casino_selected"] = False
-            st.session_state["start_time"] = None
             st.rerun()
         return 10800 - elapsed
     return 0
@@ -74,167 +65,103 @@ st.markdown(f"""
     }}
     .main-card {{
         background-color: rgba(5, 15, 5, 0.95); padding: 30px; border-radius: 20px; 
-        border: 2px solid #00ff00; text-align: center;
-        box-shadow: 0 0 25px rgba(0, 255, 0, 0.2); margin-bottom: 20px;
+        border: 2px solid #00ff00; text-align: center; box-shadow: 0 0 25px rgba(0,255,0,0.2);
     }}
     div[data-testid="stButton"] > button:contains("🚀") {{
         border-radius: 50% !important; width: 180px !important; height: 180px !important;
         border: 6px solid #00ff00 !important; background-color: #000 !important;
         color: #00ff00 !important; font-size: 18px !important; font-weight: bold !important;
-        margin: 0 auto !important; display: flex !important; align-items: center !important; justify-content: center !important;
+        margin: 0 auto !important; display: flex !important; align-items: center; justify-content: center;
     }}
     div[data-testid="stButton"] > button:not(:contains("🚀")) {{
-        border-radius: 12px !important; width: 100% !important;
-        background: #111 !important; color: #00ff00 !important; border: 1px solid #333 !important;
-    }}
-    .sync-light {{
-        width: 10px; height: 10px; background: red; border-radius: 50%;
-        display: inline-block; margin-right: 10px; animation: pulse-red 2s infinite ease-in-out;
-    }}
-    @keyframes pulse-red {{
-        0% {{ transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }}
-        70% {{ transform: scale(1.1); box-shadow: 0 0 0 8px rgba(255, 0, 0, 0); }}
-        100% {{ transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }}
+        border-radius: 12px !important; width: 100% !important; background: #111 !important; color: #00ff00 !important; border: 1px solid #333 !important;
     }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. VIEW: LOGIN
+# 6. VIEW: LOGIN & CASINO SELECTOR
 # ==============================================================================
 def show_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🛡️ ICETREX ADMIN")
-    u_field = st.text_input("OPERATOR ID")
-    k_field = st.text_input("ACCESS KEY", type="password")
-    
+    u_field = st.text_input("USERNAME")
+    k_field = st.text_input("PRODUCT KEY", type="password")
     if st.button("ACTIVATE TERMINAL"):
-        authorized = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "Osmando": "PRO779"}
-        if u_field in authorized and k_field == authorized[u_field]:
-            if u_field in st.session_state["active_sessions"]:
-                st.error(f"⚠️ KEY IN USE: '{u_field}' is active on another node.")
+        auth = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "Osmando": "PRO779"}
+        if u_field in auth and k_field == auth[u_field]:
+            if u_field in st.session_state["active_sessions"]: st.error("⚠️ KEY IN USE.")
             else:
                 st.session_state["active_sessions"][u_field] = True
-                st.session_state["current_user"] = u_field
-                st.session_state["pass"] = True
+                st.session_state["current_user"], st.session_state["pass"] = u_field, True
                 st.session_state["start_time"] = time.time()
                 st.rerun()
-        else: st.error("❌ INVALID CREDENTIALS.")
+        else: st.error("❌ INVALID.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==============================================================================
-# 7. VIEW: CASINO SELECTOR (LICENSED NODES)
-# ==============================================================================
 def show_casino_selector():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🎰 SELECT LICENSED NODE")
-    
-    # Categorized list of legal and licensed casinos
-    casino_nodes = {
-        "--- SELECT ZIMBABWE LICENSED ---": "",
-        "🇿🇼 AfricaBet Zimbabwe": "https://www.africabet.co.zw/",
-        "🇿🇼 BeVegas Zimbabwe": "https://bevegas.co.zw/",
+    nodes = {
+        "--- ZIMBABWE REGION ---": "",
+        "🇿🇼 Premier Bet Zimbabwe": "https://www.premierbet.com/zw",
+        "🇿🇼 AfricaBet": "https://www.africabet.co.zw/",
+        "🇿🇼 BeVegas": "https://bevegas.co.zw/",
+        "🇿🇼 LuckyBets": "https://www.luckybet.ng/", # Regional portal
+        "🇿🇼 Spin City": "https://spincity.bet/", 
         "🇿🇼 Saharabet": "https://saharabet.com/",
-        "🇿🇼 Winner.co.zw": "https://winner.co.zw/",
-        "🇿🇼 BetXchange": "https://www.betxchange.com/",
-        "--- SELECT GLOBAL LICENSED ---": "",
+        "--- GLOBAL REGION ---": "",
         "🌎 1xBet Official": "https://1xbet.com/",
-        "🌎 Betway Global": "https://www.betway.com/",
-        "🌎 22Bet License": "https://22bet.com/",
-        "🌎 Melbet Official": "https://melbet.com/",
-        "🌎 Parimatch": "https://parimatch.com/",
-        "🌎 Hollywoodbets": "https://www.hollywoodbets.net/",
-        "🌎 888 Casino": "https://www.888casino.com/",
-        "🌎 Bet365": "https://www.bet365.com/",
-        "🌎 Sportingbet": "https://gaming.sportingbet.com/",
-        "🌎 William Hill": "https://www.williamhill.com/",
+        "🌎 Betway": "https://www.betway.com/",
+        "🌎 Melbet": "https://melbet.com/",
         "🌎 Stake.com": "https://stake.com/"
     }
-    
-    choice = st.selectbox("ACTIVE SERVER NODES:", list(casino_nodes.keys()))
-    
+    choice = st.selectbox("ACTIVE SERVER NODES:", list(nodes.keys()))
     if st.button("SYNC DISMANTLE ENGINE"):
-        if "SELECT" not in choice:
-            st.session_state["target_url"] = casino_nodes[choice]
-            st.session_state["casino_selected"] = True
-            with st.status("🔗 Linking to Host Server...", expanded=True):
-                st.write("Fetching Server Seed...")
-                time.sleep(1)
-                st.write("Verifying License Encryption...")
-                time.sleep(1)
+        if "---" not in choice:
+            st.session_state["target_url"], st.session_state["casino_selected"] = nodes[choice], True
             st.rerun()
-        else: st.warning("Please choose a valid licensed platform.")
+        else: st.warning("Select a valid node.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. VIEW: MAIN DASHBOARD
+# 7. VIEW: MAIN DASHBOARD
 # ==============================================================================
 def show_dashboard():
     sec_left = check_timer()
-    st.markdown(f'<div style="text-align:right; font-size:11px; color:#444;">USER: {st.session_state["current_user"]} | {int(sec_left//60)}m left</div>', unsafe_allow_html=True)
+    now = get_local_time()
+    st.markdown(f'<div style="text-align:right; font-size:11px;">TIME: {now.strftime("%H:%M")} | {int(sec_left//60)}m left</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🌿 ICETREX PRO V.12")
-    
-    st.markdown(f"""
-        <div style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 10px; border-left: 5px solid #ff0000; margin-bottom: 25px;">
-            <span class="sync-light"></span><b style="color:#ff0000;">SYNCED TO: {st.session_state['target_url']}</b><br>
-            <small style="color:#777;">DECRYPTING SEED NODES | {datetime.datetime.now().strftime('%H:%M:%S')}</small>
-        </div>
-    """, unsafe_allow_html=True)
+    st.title("🌿 ICETREX PRO")
+    st.info(f"SYNCED TO: {st.session_state['target_url']}")
 
     if st.button("🚀 PREDICT SIGNAL"):
-        with st.spinner("📡 DISMANTLING STATISTICS..."):
-            time.sleep(5)
-            
-        accuracy_trigger = random.randint(1, 100)
-        # The 78-80% Dismantle Algorithm
-        if accuracy_trigger <= 80:
-            sub = random.random()
-            if sub > 0.88: v, l, c = round(random.uniform(12.0, 48.0), 2), "🔥 PINK MOON", "#ff00ff"
-            else: v, l, c = round(random.uniform(2.05, 5.5), 2), "✅ GOLDEN ZONE", "#ffff00"
-        else: v, l, c = round(random.uniform(1.1, 1.8), 2), "⚡ BLUE DRIFT", "#00ffff"
+        with st.spinner("📡 SCANNING HASH..."): time.sleep(3)
+        acc = random.randint(1, 100)
+        if acc <= 80:
+            v, l, c = (round(random.uniform(12.0, 48.0), 2), "🔥 PINK", "#ff00ff") if random.random() > 0.88 else (round(random.uniform(2.05, 5.5), 2), "✅ GOLDEN", "#ffff00")
+        else: v, l, c = round(random.uniform(1.1, 1.8), 2), "⚡ BLUE", "#00ffff"
 
-        st.markdown(f"""
-            <div style="border: 2px solid {c}; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.7);">
-                <h1 style="color:{c}; font-size:90px; margin:0;">{v}x</h1>
-                <p style="color:{c}; font-weight:bold;">ACCURACY: {random.randint(78, 80)}%</p>
-                <code style="color:#333; font-size:9px;">SHA-512 HASH: {hex(random.getrandbits(128))}</code>
-            </div>
-        """, unsafe_allow_html=True)
-        st.session_state.history.insert(0, f"{v}x ({l}) - Seed Match {accuracy_trigger}%")
+        st.markdown(f"<h1 style='color:{c}; font-size:90px; margin:0;'>{v}x</h1>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color:{c}; font-weight:bold;'>ACCURACY: {random.randint(78, 80)}%</p>", unsafe_allow_html=True)
+        st.session_state.history.insert(0, f"[{now.strftime('%H:%M')}] {v}x ({l})")
         st.session_state.history = st.session_state.history[:5]
 
-    if st.session_state.history:
-        with st.expander("📝 SYSTEM LOGS"):
-            for entry in st.session_state.history:
-                st.markdown(f"<p style='color:#00ff00; font-size:12px; margin:0;'>{entry}</p>", unsafe_allow_html=True)
-
-    st.markdown("---")
-    with st.expander("📊 ACCOUNTING LEDGER"):
-        c1, c2 = st.columns(2)
-        with c1: s_bal = st.number_input("Opening Bal", value=10.0)
-        with c2: e_bal = st.number_input("Closing Bal", value=10.0)
-        st.markdown(f"#### Net P/L: {'$'+str(round(e_bal - s_bal, 2))}")
-
-    st.components.v1.html(f'<div style="border: 1px solid #00ff00; border-radius: 15px; overflow: hidden;"><iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="400" frameborder="0"></iframe></div>', height=420)
+    with st.expander("📝 LOGS"):
+        for e in st.session_state.history: st.markdown(f"<p style='color:#0f0; margin:0;'>{e}</p>", unsafe_allow_html=True)
     
-    col_a, col_b = st.columns(2)
-    with col_a: st.markdown(f'<a href="{WHATSAPP_LINK}"><button style="width:100%; padding:12px; border-radius:10px; background:#25D366; color:white; border:none;">SUPPORT</button></a>', unsafe_allow_html=True)
-    with col_b:
-        if st.button("🚪 DISCONNECT"):
-            u = st.session_state.get("current_user")
-            if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
-            st.session_state["pass"] = False
-            st.session_state["casino_selected"] = False
-            st.rerun()
+    st.components.v1.html(f'<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="400" frameborder="0"></iframe>', height=420)
+    
+    if st.button("🚪 DISCONNECT"):
+        u = st.session_state.get("current_user")
+        if u in st.session_state["active_sessions"]: del st.session_state["active_sessions"][u]
+        st.session_state["pass"] = False
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 9. EXECUTION FLOW
+# 8. EXECUTION
 # ==============================================================================
-if not st.session_state["pass"]:
-    show_login()
-elif not st.session_state["casino_selected"]:
-    show_casino_selector()
-else:
-    show_dashboard()
+if not st.session_state["pass"]: show_login()
+elif not st.session_state["casino_selected"]: show_casino_selector()
+else: show_dashboard()
