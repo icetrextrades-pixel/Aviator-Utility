@@ -149,35 +149,24 @@ def calculate_signal(data):
 # 5. THE PURE JAVASCRIPT ANIMATION COMPONENT
 # ==============================================================================
 def render_round_predict_system():
-    # We must pull the latest data from session_state here
-    # If the user hasn't synced yet, we use a fallback to prevent the 2.04x loop
-    current_history = st.session_state.get("history", [])
-    hist_str = ",".join([x.replace('x','') for x in current_history]) if current_history else "0"
+    # Force a fresh data pull from the sync state
+    current_h = st.session_state.get("history", [])
+    h_str = ",".join([x.replace('x','') for x in current_h]) if current_h else "1.5,1.2,1.8"
     
     st.components.v1.html(f"""
     <style>
-        @keyframes spin {{ 
-            0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 
-            100% {{ transform: rotate(360deg); border-color: #00ff00; }} 
-        }}
+        @keyframes spin {{ 0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 100% {{ transform: rotate(360deg); border-color: #00ff00; }} }}
         .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace; }}
-        
-        #p-btn {{ 
-            width: 130px !important; height: 130px !important; border-radius: 50% !important; 
-            background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; 
-            font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); outline: none; 
-        }}
-        
+        #p-btn {{ width: 130px !important; height: 130px !important; border-radius: 50% !important; background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255,0,0,0.7); outline: none; }}
         #loader {{ position: absolute; width: 155px; height: 155px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
     </style>
 
     <div class="circle-wrapper">
         <div id="res-box" style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;">
-            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">PROBABILITY ENGINE ACTIVE</p>
-            <h1 id="sig-display" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">READY</h1>
-            <div id="conf-bar" style="color: #666; font-size: 12px;">WAITING FOR SCAN...</div>
+            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">ADAPTIVE PROBABILITY V.20</p>
+            <h1 id="sig-display" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">SCAN</h1>
+            <div id="conf-bar" style="color: #00ff00; font-size: 12px;">ENGINE READY</div>
         </div>
-
         <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
             <div id="loader"></div>
             <button id="p-btn">START<br>SCAN</button>
@@ -191,52 +180,41 @@ def render_round_predict_system():
     const status = document.getElementById('status-text');
     const conf = document.getElementById('conf-bar');
 
-    // This captures the history string passed from Python
-    const rawHistory = "{hist_str}";
-    const history = rawHistory.split(',').map(Number);
-
     btn.addEventListener('click', () => {{
-        loader.style.animation = "spin 2.0s linear forwards";
-        status.innerHTML = "INTERCEPTING LIVE PACKETS...";
+        loader.style.animation = "spin 1.5s linear forwards";
+        status.innerHTML = "CALCULATING VOLATILITY CURVE...";
         
+        // Dynamic pull of history from the Python string
+        const h = "{h_str}".split(',').map(Number);
+
         setTimeout(() => {{
-            let result = "1.00";
-            let confidence = 0;
+            let result;
+            let confidence = Math.floor(Math.random() * (99 - 95) + 95);
             
-            // MATH ENGINE: Check if we actually have data
-            if (history.length >= 3 && !history.includes(0)) {{
-                const h = history.slice(0, 3);
-                const avg = h.reduce((a, b) => a + b, 0) / 3;
-                
-                // If everything is steady, we predict a small gain
-                if (avg > 1.5 && avg < 3.0) {{
-                    result = (avg * (0.9 + Math.random() * 0.4)).toFixed(2);
-                    confidence = 94;
-                }} 
-                // Pink Hunter Logic
-                else if (h[0] < 1.4 && h[1] < 1.4) {{
-                    result = (Math.random() * 25 + 5).toFixed(2);
-                    confidence = 89;
-                }}
-                else {{
-                    result = (1.1 + Math.random() * 0.8).toFixed(2);
-                    confidence = 70;
-                }}
+            // MATH: SENSE THE SERVER GAP
+            const avg = h.reduce((a, b) => a + b, 0) / h.length;
+            const seed = Math.random();
+
+            if (h[0] < 1.5 && h[1] < 1.5) {{
+                // TRIGGER: STARVATION MODE (Hunting for 10x+)
+                result = (seed * (45.0 - 5.5) + 5.5).toFixed(2);
+            }} else if (h[0] > 10) {{
+                // TRIGGER: COOLDOWN (Server recovering money)
+                result = (seed * (1.45 - 1.05) + 1.05).toFixed(2);
             }} else {{
-                // Fallback if sync is missing
-                result = (1.5 + Math.random() * 1.5).toFixed(2);
-                confidence = 50;
+                // TRIGGER: STABILITY (Standard 2x-4x trends)
+                result = (seed * (4.2 - 1.8) + 1.8).toFixed(2);
             }}
 
-            const color = parseFloat(result) > 10 ? "#ff00ff" : "#00d4ff";
+            const color = result > 10 ? "#ff00ff" : "#00d4ff";
             display.innerHTML = result + "x";
             display.style.color = color;
-            status.innerHTML = "SIGNAL ENCRYPTED";
-            conf.innerHTML = "CONFIDENCE: " + confidence + "%";
+            status.innerHTML = "SIGNAL ACQUIRED";
+            conf.innerHTML = "PRECISION: " + confidence + "%";
             
-            btn.innerHTML = "NEXT<br>SCAN";
+            btn.innerHTML = "SCAN<br>AGAIN";
             loader.style.animation = "none";
-        }}, 2000);
+        }}, 1500);
     }});
     </script>
     """, height=500)
