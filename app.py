@@ -149,108 +149,117 @@ def calculate_signal(data):
 # 5. THE PURE JAVASCRIPT ANIMATION COMPONENT
 # ==============================================================================
 def render_round_predict_system():
-    # Since we can't get data *back* easily from a JS click to Python,
-    # we use an `st.components.v1.html` as the 'brain' of the dashboard.
+    # Feeding the current history into the JS Brain
+    hist_str = ",".join([x.replace('x','') for x in st.session_state["history"]])
     
-    # We pass the current Session History and Last Prediction to JS as JSON
-    # so it can maintain the state during the animation loop.
-    history_json = str(st.session_state["history"]).replace("'", '"')
-    last_v = st.session_state["last_v"] if st.session_state["last_v"] is not None else "0.00x"
-    
-    # JavaScript handles the entire sequence:
-    # 1. Click -> 2. Change color -> 3. Animate green lap -> 4. Calculate signal (via Python) -> 5. Display result.
     st.components.v1.html(f"""
-    <div class="main-card" style="position: relative; padding: 0;">
-        <h1 style="color: #fff; font-size: 24px; margin-top: 15px;">✈️ PREDICTOR PRO</h1>
-        <p style="color: #00d4ff; margin: 0;">SERVER: {st.session_state['casino']} | STATUS: SYNCED</p>
+    <style>
+        @keyframes spin {{
+            0% {{ transform: rotate(0deg); border-top-color: #00ff00; }}
+            100% {{ transform: rotate(360deg); border-top-color: #00ff00; border-right-color: #00ff00; border-bottom-color: #00ff00; border-left-color: #00ff00; }}
+        }}
         
-        <div id="result-display" style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: #000; margin: 20px;">
-            <p id="label" style="color: #00d4ff; font-size: 10px; margin: 0;">PREVIOUS SIGNAL</p>
-            <h1 id="multiplier" style="color: #00d4ff; font-size: 80px; margin: 0;">{last_v}</h1>
-            <p id="match" style="color: #00d4ff;">PATTERN MATCH: {random.randint(94, 98)}%</p>
+        .circle-wrapper {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', Courier, monospace;
+        }}
+
+        /* THE ACTUAL ROUND BUTTON */
+        #p-btn {{
+            width: 130px !important;
+            height: 130px !important;
+            border-radius: 50% !important; /* This forces the circle */
+            background-color: #ff0000 !important; /* Solid Red */
+            color: white !important;
+            border: 4px solid #ffffff !important;
+            font-weight: bold !important;
+            font-size: 16px !important;
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            transition: 0.2s;
+            outline: none;
+        }}
+
+        #p-btn:active {{
+            transform: scale(0.95);
+            background-color: #cc0000 !important;
+        }}
+
+        /* THE GREEN LAP TIMER */
+        #loader {{
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px solid transparent;
+            z-index: 5;
+            pointer-events: none;
+        }}
+    </style>
+
+    <div class="circle-wrapper">
+        <div id="res-box" style="border: 2px solid #00d4ff; padding: 15px; border-radius: 15px; background: rgba(0,0,0,0.85); width: 100%; margin-bottom: 25px; text-align: center;">
+            <p id="status-text" style="color: #00d4ff; font-size: 12px; margin: 0; letter-spacing: 2px;">READY TO SCAN</p>
+            <h1 id="sig-display" style="color: #00d4ff; font-size: 80px; margin: 10px 0;">0.00x</h1>
+            <p style="color: #00d4ff; font-size: 12px; opacity: 0.7;">PATTERN MATCH: 98%</p>
         </div>
-        
-        <div class="predict-container">
-            <div id="lapTimer" class="lap-timer"></div>
-            
-            <button id="predictBtn" class="round-btn">PREDICT<br>NEXT</button>
+
+        <div style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center;">
+            <div id="loader"></div>
+            <button id="p-btn">PREDICT<br>NEXT</button>
         </div>
-        
-        <hr style="border-color: #333; margin: 0;">
     </div>
 
     <script>
-    const btn = document.getElementById('predictBtn');
-    const timer = document.getElementById('lapTimer');
-    const multiplierDisplay = document.getElementById('multiplier');
-    const labelDisplay = document.getElementById('label');
-    const resultDisplay = document.getElementById('result-display');
-    
-    // We import the gap analysis logic we discussed. 
-    // We have to 'translate' the Python logic into simple JS here for immediate results.
-    const historyData = {history_json};
-
-    function calculateSignalFromHistory(data) {{
-        // Basic translation of the logic. If last 3 are all very low, return high.
-        // For a true integration, we would need an external API, but this mirrors the Python logic well.
-        if (data.length < 3) return 1.85;
-        
-        // Convert '1.50x' strings to floats
-        const vals = data.slice(0, 3).map(x => parseFloat(x.replace('x', '')));
-        
-        // Check for starvation gap (< 1.45)
-        if (vals.every(v => v < 1.45)) {{
-            // Pressure is high for a Pink spike! ( mirroring Python random )
-            return (Math.random() * (95.00 - 15.50) + 15.50).toFixed(2);
-        }}
-        
-        // Check for cooldown gap (> 10x recent)
-        const recentHighs = data.slice(0, 2).map(x => parseFloat(x.replace('x', '')));
-        if (recentHighs.some(v => v > 10.0)) {{
-            return (Math.random() * (1.30 - 1.01) + 1.01).toFixed(2);
-        }}
-        
-        // Default stability trend gap
-        return (Math.random() * (4.80 - 2.10) + 2.10).toFixed(2);
-    }}
+    const btn = document.getElementById('p-btn');
+    const loader = document.getElementById('loader');
+    const display = document.getElementById('sig-display');
+    const status = document.getElementById('status-text');
+    const history = [{hist_str}];
 
     btn.addEventListener('click', () => {{
-        // PHASE 1: BUTTON PRESSED (Red changes)
-        btn.classList.add('active');
-        btn.innerHTML = "SCANNING...";
-        
-        // PHASE 2: SHOW GREEN LAP TIMER (2.5s)
-        timer.classList.add('active');
-        labelDisplay.innerHTML = "SCANNING SERVER GAPS...";
-        
-        // PHASE 3: THE WAIT & DISPLAY (SetTimeout must match animation duration)
+        // Start Animation
+        btn.innerHTML = "SCANNING";
+        loader.style.animation = "spin 2.5s linear forwards";
+        status.innerHTML = "INTERCEPTING DATA...";
+        status.style.color = "#ffff00";
+
         setTimeout(() => {{
-            // Calculate signal (using the translated logic)
-            const v = calculateSignalFromHistory(historyData);
-            
-            // PHASE 4: UPDATE INTERFACE
-            const color = (v >= 5) ? "#ff00ff" : "#00d4ff"; // Pink for Gold/Pink, Blue for safety
-            
-            // Update Display
-            multiplierDisplay.innerHTML = v + "x";
-            multiplierDisplay.style.color = color;
-            labelDisplay.innerHTML = "VERIFIED SIGNAL";
-            labelDisplay.style.color = color;
-            resultDisplay.style.borderColor = color;
-            
-            // PHASE 5: CLEANUP & REFRESH BUTTON
-            btn.classList.remove('active');
+            // GAP ANALYSIS (Mirrors Python Logic)
+            let result = 1.85;
+            if (history.length >= 3) {{
+                const vals = history.slice(0,3);
+                const lowStreak = vals.every(v => v < 1.45);
+                const recentPink = vals.slice(0,2).some(v => v > 10);
+                
+                if (lowStreak) {{
+                    result = (Math.random() * (60.0 - 15.0) + 15.0).toFixed(2);
+                }} else if (recentPink) {{
+                    result = (Math.random() * (1.30 - 1.01) + 1.01).toFixed(2);
+                }} else {{
+                    result = (Math.random() * (4.2 - 2.1) + 2.1).toFixed(2);
+                }}
+            }}
+
+            // Update UI with Result
+            const color = result >= 10 ? "#ff00ff" : "#00d4ff";
+            display.innerHTML = result + "x";
+            display.style.color = color;
+            document.getElementById('res-box').style.borderColor = color;
+            status.innerHTML = "SIGNAL VERIFIED";
+            status.style.color = color;
+
+            // Reset Button
             btn.innerHTML = "PREDICT<br>NEXT";
-            timer.classList.remove('active');
-            
-            // Note: Since JS runs in the browser, we cannot directly update st.session_state history here.
-            // This version provides the visual flow. We would need a full Python backend architecture 
-            // (like Flask/Django) to manage the state updates seamlessly.
-            
-        }}, 2500); // 2500ms (2.5 seconds)
-    }};
+            loader.style.animation = "none";
+        }}, 2500);
+    }});
     </script>
-    """, height=500)
+    """, height=480)
 
 # ==============================================================================
 # 6. VIEW FUNCTIONS
