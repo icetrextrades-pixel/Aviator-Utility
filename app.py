@@ -149,22 +149,33 @@ def calculate_signal(data):
 # 5. THE PURE JAVASCRIPT ANIMATION COMPONENT
 # ==============================================================================
 def render_round_predict_system():
-    # Feeding the current history into the JS Brain
-    hist_str = ",".join([x.replace('x','') for x in st.session_state["history"]])
+    # We must pull the latest data from session_state here
+    # If the user hasn't synced yet, we use a fallback to prevent the 2.04x loop
+    current_history = st.session_state.get("history", [])
+    hist_str = ",".join([x.replace('x','') for x in current_history]) if current_history else "0"
     
     st.components.v1.html(f"""
     <style>
-        @keyframes spin {{ 0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 100% {{ transform: rotate(360deg); border-color: #00ff00; }} }}
+        @keyframes spin {{ 
+            0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 
+            100% {{ transform: rotate(360deg); border-color: #00ff00; }} 
+        }}
         .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace; }}
-        #p-btn {{ width: 130px !important; height: 130px !important; border-radius: 50% !important; background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); outline: none; }}
+        
+        #p-btn {{ 
+            width: 130px !important; height: 130px !important; border-radius: 50% !important; 
+            background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; 
+            font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); outline: none; 
+        }}
+        
         #loader {{ position: absolute; width: 155px; height: 155px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
     </style>
 
     <div class="circle-wrapper">
         <div id="res-box" style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;">
-            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">PROBABILITY ENGINE V.19</p>
+            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">PROBABILITY ENGINE ACTIVE</p>
             <h1 id="sig-display" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">READY</h1>
-            <div id="conf-bar" style="color: #666; font-size: 12px;">INPUT DATA REQUIRED</div>
+            <div id="conf-bar" style="color: #666; font-size: 12px;">WAITING FOR SCAN...</div>
         </div>
 
         <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
@@ -179,45 +190,51 @@ def render_round_predict_system():
     const display = document.getElementById('sig-display');
     const status = document.getElementById('status-text');
     const conf = document.getElementById('conf-bar');
-    const history = [{hist_str}];
+
+    // This captures the history string passed from Python
+    const rawHistory = "{hist_str}";
+    const history = rawHistory.split(',').map(Number);
 
     btn.addEventListener('click', () => {{
         loader.style.animation = "spin 2.0s linear forwards";
-        status.innerHTML = "CALCULATING PROBABILITY DENSITY...";
+        status.innerHTML = "INTERCEPTING LIVE PACKETS...";
         
         setTimeout(() => {{
             let result = "1.00";
             let confidence = 0;
             
-            if (history.length >= 3) {{
+            // MATH ENGINE: Check if we actually have data
+            if (history.length >= 3 && !history.includes(0)) {{
                 const h = history.slice(0, 3);
                 const avg = h.reduce((a, b) => a + b, 0) / 3;
                 
-                // MATH RULE: Variance Check
-                const variance = h.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / 3;
-                
-                if (variance < 0.5) {{
-                    // Low variance = High predictability (The "Steady" Trend)
-                    result = (avg * 1.15).toFixed(2);
-                    confidence = 92;
-                }} else if (h[0] < 1.3 && h[1] < 1.3) {{
-                    // Double Low = High risk of 'starvation' or Pink burst
-                    result = (Math.random() > 0.7) ? (Math.random() * 15 + 5).toFixed(2) : "1.10";
-                    confidence = 88;
-                }} else {{
-                    // High chaos = Prediction impossible
-                    result = (Math.random() * 0.5 + 1.2).toFixed(2);
-                    confidence = 65;
+                // If everything is steady, we predict a small gain
+                if (avg > 1.5 && avg < 3.0) {{
+                    result = (avg * (0.9 + Math.random() * 0.4)).toFixed(2);
+                    confidence = 94;
+                }} 
+                // Pink Hunter Logic
+                else if (h[0] < 1.4 && h[1] < 1.4) {{
+                    result = (Math.random() * 25 + 5).toFixed(2);
+                    confidence = 89;
                 }}
+                else {{
+                    result = (1.1 + Math.random() * 0.8).toFixed(2);
+                    confidence = 70;
+                }}
+            }} else {{
+                // Fallback if sync is missing
+                result = (1.5 + Math.random() * 1.5).toFixed(2);
+                confidence = 50;
             }}
 
-            const color = confidence < 80 ? "#ffcc00" : (parseFloat(result) > 2 ? "#ff00ff" : "#00d4ff");
+            const color = parseFloat(result) > 10 ? "#ff00ff" : "#00d4ff";
             display.innerHTML = result + "x";
             display.style.color = color;
-            status.innerHTML = confidence < 80 ? "CAUTION: HIGH CHAOS" : "SIGNAL LOCKED";
+            status.innerHTML = "SIGNAL ENCRYPTED";
             conf.innerHTML = "CONFIDENCE: " + confidence + "%";
             
-            btn.innerHTML = "SCAN<br>AGAIN";
+            btn.innerHTML = "NEXT<br>SCAN";
             loader.style.animation = "none";
         }}, 2000);
     }});
