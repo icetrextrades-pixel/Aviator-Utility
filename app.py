@@ -154,56 +154,22 @@ def render_round_predict_system():
     
     st.components.v1.html(f"""
     <style>
-        @keyframes spin {{
-            0% {{ transform: rotate(0deg); border-top-color: #00ff00; }}
-            100% {{ transform: rotate(360deg); border-color: #00ff00; }}
-        }}
-        
-        .circle-wrapper {{
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-family: monospace;
-        }}
-
-        #p-btn {{
-            width: 130px !important;
-            height: 130px !important;
-            border-radius: 50% !important;
-            background-color: #ff0000 !important;
-            color: white !important;
-            border: 4px solid #ffffff !important;
-            font-weight: bold !important;
-            font-size: 16px !important;
-            cursor: pointer;
-            z-index: 10;
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.7);
-            transition: 0.2s;
-            outline: none;
-        }}
-
-        #loader {{
-            position: absolute;
-            width: 155px;
-            height: 155px;
-            border-radius: 50%;
-            border: 6px solid transparent;
-            z-index: 5;
-            pointer-events: none;
-        }}
+        @keyframes spin {{ 0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 100% {{ transform: rotate(360deg); border-color: #00ff00; }} }}
+        .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace; }}
+        #p-btn {{ width: 130px !important; height: 130px !important; border-radius: 50% !important; background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); outline: none; }}
+        #loader {{ position: absolute; width: 155px; height: 155px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
     </style>
 
     <div class="circle-wrapper">
         <div id="res-box" style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;">
-            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0; font-weight: bold;">SYSTEM READY</p>
-            <h1 id="sig-display" style="color: #00d4ff; font-size: 85px; margin: 10px 0; font-weight: 900;">---</h1>
-            <div id="accuracy-bar" style="color: #00ff00; font-size: 12px;">WAITING FOR SCAN...</div>
+            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">PROBABILITY ENGINE V.19</p>
+            <h1 id="sig-display" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">READY</h1>
+            <div id="conf-bar" style="color: #666; font-size: 12px;">INPUT DATA REQUIRED</div>
         </div>
 
         <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
             <div id="loader"></div>
-            <button id="p-btn">PREDICT<br>NEXT</button>
+            <button id="p-btn">START<br>SCAN</button>
         </div>
     </div>
 
@@ -212,67 +178,51 @@ def render_round_predict_system():
     const loader = document.getElementById('loader');
     const display = document.getElementById('sig-display');
     const status = document.getElementById('status-text');
-    const acc = document.getElementById('accuracy-bar');
-    
-    // The Raw History Data from your Sync
+    const conf = document.getElementById('conf-bar');
     const history = [{hist_str}];
 
     btn.addEventListener('click', () => {{
-        btn.innerHTML = "SCANNING";
-        btn.style.boxShadow = "0 0 5px #ff0000";
-        loader.style.animation = "spin 2.5s linear forwards";
-        status.innerHTML = "DECRYPTING SERVER PACKETS...";
-        status.style.color = "#ffff00";
-
+        loader.style.animation = "spin 2.0s linear forwards";
+        status.innerHTML = "CALCULATING PROBABILITY DENSITY...";
+        
         setTimeout(() => {{
-            let prediction = 1.85;
-            let confidence = Math.floor(Math.random() * (98 - 94 + 1) + 94);
+            let result = "1.00";
+            let confidence = 0;
             
             if (history.length >= 3) {{
-                const last3 = history.slice(0, 3);
-                const avg = last3.reduce((a, b) => a + b, 0) / 3;
-                const lastWasPink = history[0] > 10;
+                const h = history.slice(0, 3);
+                const avg = h.reduce((a, b) => a + b, 0) / 3;
                 
-                // 1. THE RECOVERY LOGIC (After a big win, server eats money)
-                if (lastWasPink) {{
-                    prediction = (Math.random() * (1.25 - 1.01) + 1.01).toFixed(2);
-                    confidence = 99; // Very high confidence it will be low
-                }} 
-                // 2. THE PINK HUNTER (Gap Analysis)
-                else if (last3.every(v => v < 1.8)) {{
-                    // Last 3 were trash, probability of 10x-50x spike increases
-                    prediction = (Math.random() * (35.00 - 8.50) + 8.50).toFixed(2);
-                }}
-                // 3. THE STABILITY ZONE
-                else if (avg > 2.0 && avg < 4.0) {{
-                    prediction = (Math.random() * (2.40 - 1.60) + 1.60).toFixed(2);
-                }}
-                // 4. THE CHAOS/LIE PHASE
-                else {{
-                    prediction = (Math.random() * (1.95 - 1.15) + 1.15).toFixed(2);
+                // MATH RULE: Variance Check
+                const variance = h.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / 3;
+                
+                if (variance < 0.5) {{
+                    // Low variance = High predictability (The "Steady" Trend)
+                    result = (avg * 1.15).toFixed(2);
+                    confidence = 92;
+                }} else if (h[0] < 1.3 && h[1] < 1.3) {{
+                    // Double Low = High risk of 'starvation' or Pink burst
+                    result = (Math.random() > 0.7) ? (Math.random() * 15 + 5).toFixed(2) : "1.10";
+                    confidence = 88;
+                }} else {{
+                    // High chaos = Prediction impossible
+                    result = (Math.random() * 0.5 + 1.2).toFixed(2);
+                    confidence = 65;
                 }}
             }}
 
-            // Visual Updates based on prediction value
-            const isPink = parseFloat(prediction) >= 10;
-            const themeColor = isPink ? "#ff00ff" : "#00d4ff";
+            const color = confidence < 80 ? "#ffcc00" : (parseFloat(result) > 2 ? "#ff00ff" : "#00d4ff");
+            display.innerHTML = result + "x";
+            display.style.color = color;
+            status.innerHTML = confidence < 80 ? "CAUTION: HIGH CHAOS" : "SIGNAL LOCKED";
+            conf.innerHTML = "CONFIDENCE: " + confidence + "%";
             
-            display.innerHTML = prediction + "x";
-            display.style.color = themeColor;
-            document.getElementById('res-box').style.borderColor = themeColor;
-            status.innerHTML = "SIGNAL VERIFIED";
-            status.style.color = themeColor;
-            acc.innerHTML = "PATTERN MATCH: " + confidence + "%";
-            acc.style.color = themeColor;
-
-            // Reset Button
-            btn.innerHTML = "PREDICT<br>NEXT";
-            btn.style.boxShadow = "0 0 25px rgba(255, 0, 0, 0.7)";
+            btn.innerHTML = "SCAN<br>AGAIN";
             loader.style.animation = "none";
-        }}, 2500);
+        }}, 2000);
     }});
     </script>
-    """, height=520)
+    """, height=500)
 # ==============================================================================
 # 6. VIEW FUNCTIONS
 # ==============================================================================
