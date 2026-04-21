@@ -248,7 +248,7 @@ def render_round_predict_system():
             // (like Flask/Django) to manage the state updates seamlessly.
             
         }}, 2500); // 2500ms (2.5 seconds)
-    });
+    }};
     </script>
     """, height=500)
 
