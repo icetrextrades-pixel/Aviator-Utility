@@ -271,7 +271,7 @@ def show_login():
 def show_casino_select():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("📡 SELECT SOURCE")
-    choice = st.selectbox("CASINO:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "LuckyBets", "1win", "SpinCity"]
+    choice = st.selectbox("CASINO:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "LuckyBets", "1win", "SpinCity"])
     if st.button("CONNECT") and choice != "---":
         st.session_state["casino"] = choice
         st.rerun()
