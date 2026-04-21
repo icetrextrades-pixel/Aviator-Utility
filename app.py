@@ -20,7 +20,7 @@ if "last_v" not in st.session_state: st.session_state["last_v"] = None
 st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 
 # Replace this URL with your preferred background image
-WALLPAPER_URL = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809"
+WALLPAPER_URL = "https://th.bing.com/th/id/OIP.P5sH87pt9X-qDLh09c5TngHaEJ?w=324&h=182&c=7&r=0&o=7&pid=1.7&rm=3"
 
 st.markdown(f"""
 <style>
@@ -271,7 +271,7 @@ def show_login():
 def show_casino_select():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("📡 SELECT SOURCE")
-    choice = st.selectbox("CASINO:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "LuckyBets", "1win", "SpinCity"])
+    choice = st.selectbox("CASINO:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "LuckyBets", "1win", "SpinCity", "MWOS", "Zanzibet"])
     if st.button("CONNECT") and choice != "---":
         st.session_state["casino"] = choice
         st.rerun()
