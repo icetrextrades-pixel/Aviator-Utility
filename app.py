@@ -202,7 +202,7 @@ def render_round_predict_system():
         if (vals.every(v => v < 1.45)) {{
             // Pressure is high for a Pink spike! ( mirroring Python random )
             return (Math.random() * (95.00 - 15.50) + 15.50).toFixed(2);
-        }
+        }}
         
         // Check for cooldown gap (> 10x recent)
         const recentHighs = data.slice(0, 2).map(x => parseFloat(x.replace('x', '')));
