@@ -20,7 +20,7 @@ if "last_v" not in st.session_state: st.session_state["last_v"] = None
 st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 
 # Replace this URL with your preferred background image
-WALLPAPER_URL = "https://th.bing.com/th/id/OIP.P5sH87pt9X-qDLh09c5TngHaEJ?w=324&h=182&c=7&r=0&o=7&pid=1.7&rm=3"
+WALLPAPER_URL = "https://tse3.mm.bing.net/th/id/OIP.BIbCCJQo4r2U4084ObJetgHaEK?rs=1&pid=ImgDetMain&o=7&rm=3"
 
 st.markdown(f"""
 <style>
