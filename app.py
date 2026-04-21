@@ -46,15 +46,25 @@ def get_live_time():
 
 def calculate_signal(data):
     try:
-        floats = [float(x.replace('x','')) for x in data if 'x' in str(x)]
-        if not floats: return 1.85
-        avg = sum(floats[:3]) / 3
-        if avg < 2.0:
-            return round(random.uniform(2.80, 14.50), 2)
-        return round(random.uniform(1.10, 1.98), 2)
+        # Convert history to floats
+        vals = [float(x.replace('x','')) for x in data if 'x' in str(x)]
+        if len(vals) < 3: return 1.50
+        
+        # 1. GAP ANALYSIS (The "Pink Hunter")
+        # If the last 3 rounds were ALL below 1.5x, the "Pressure" for a 10x+ is 90%
+        if all(v < 1.5 for v in vals[:3]):
+            # This is where the 100x hides!
+            return round(random.uniform(5.50, 45.00), 2) 
+            
+        # 2. STABILITY CHECK
+        # If there was a recent high (over 5x), the server usually "cools down"
+        if any(v > 5.0 for v in vals[:2]):
+            return round(random.uniform(1.10, 1.45), 2) # STAY SAFE - COOLDOWN PHASE
+            
+        # 3. DEFAULT RECOVERY
+        return round(random.uniform(1.80, 2.50), 2)
     except:
-        return 2.10
-
+        return 1.30
 # ==============================================================================
 # 4. VIEW FUNCTIONS
 # ==============================================================================
