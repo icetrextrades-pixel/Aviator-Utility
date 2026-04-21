@@ -208,11 +208,11 @@ def render_round_predict_system():
         const recentHighs = data.slice(0, 2).map(x => parseFloat(x.replace('x', '')));
         if (recentHighs.some(v => v > 10.0)) {{
             return (Math.random() * (1.30 - 1.01) + 1.01).toFixed(2);
-        }
+        }}
         
         // Default stability trend gap
         return (Math.random() * (4.80 - 2.10) + 2.10).toFixed(2);
-    }
+    }}
 
     btn.addEventListener('click', () => {{
         // PHASE 1: BUTTON PRESSED (Red changes)
