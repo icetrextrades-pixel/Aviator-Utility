@@ -23,9 +23,9 @@ st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 # Replace the URL below with your actual wallpaper link.
 WALLPAPER_URL = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809" # Example Dark Abstract
 
+# Use a regular string or double the braces in the f-string
 st.markdown(f"""
     <style>
-    /* THEME FUNDAMENTALS */
     .stApp {{
         background-image: url("{WALLPAPER_URL}");
         background-size: cover;
@@ -35,15 +35,15 @@ st.markdown(f"""
         font-family: monospace;
     }}
     
-    /* Global Card Style */
     .main-card {{
-        background: rgba(10, 10, 10, 0.90); /* Semi-transparent for wallpaper */
+        background: rgba(10, 10, 10, 0.90);
         padding: 20px;
         border-radius: 15px; 
         border: 1px solid #00d4ff;
         text-align: center;
-        margin-bottom: 20px;
-    }
+    }}
+    </style>
+    """, unsafe_allow_html=True)
     
     /* standard Streamlit button override for non-prediction buttons */
     div[data-testid="stButton"] > button {{
