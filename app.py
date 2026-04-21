@@ -15,127 +15,91 @@ if "history" not in st.session_state: st.session_state["history"] = []
 if "last_v" not in st.session_state: st.session_state["last_v"] = None
 
 # ==============================================================================
-# 2. INTERFACE & BACKGROUND WALLPAPER (Fix #1)
+# 2. INTERFACE & BACKGROUND WALLPAPER
 # ==============================================================================
 st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 
-# To use a custom wallpaper, you need an image URL.
-# Replace the URL below with your actual wallpaper link.
-WALLPAPER_URL = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809" # Example Dark Abstract
+# Replace this URL with your preferred background image
+WALLPAPER_URL = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809"
 
-# Use a regular string or double the braces in the f-string
 st.markdown(f"""
-    <style>
-    .stApp {{
-        background-image: url("{WALLPAPER_URL}");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: #00d4ff;
-        font-family: monospace;
-    }}
-    
-    .main-card {{
-        background: rgba(10, 10, 10, 0.90);
-        padding: 20px;
-        border-radius: 15px; 
-        border: 1px solid #00d4ff;
-        text-align: center;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-    /* standard Streamlit button override for non-prediction buttons */
-    div[data-testid="stButton"] > button {{
-        width: 100%; border-radius: 10px; background: #000 !important; color: #00d4ff !important; 
-        border: 1px solid #00d4ff !important; font-weight: bold;
-    }}
+<style>
+.stApp {{
+    background-image: url("{WALLPAPER_URL}");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: #00d4ff;
+    font-family: monospace;
+}}
 
-    /* ====================================================================== */
-    /* THE CIRCULAR BUTTON (Fix #2 & #3) */
-    /* ====================================================================== */
-    /* Container to center the circle */
-    .predict-container {{
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 30px 0;
-        position: relative;
-    }}
-    
-    /* The core circular button */
-    .round-btn {{
-        width: 150px; /* Full circle: width = height */
-        height: 150px;
-        border-radius: 50%; /* Perfect circle shape */
-        background-color: #ff0000; /* Default Red color */
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        border: 4px solid #fff;
-        cursor: pointer;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        transition: all 0.3s ease;
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
-        z-index: 10; /* Ensures it is on top of the animation */
-    }}
-    
-    .round-btn:hover {{
-        background-color: #b30000; /* Darker red on hover */
-        box-shadow: 0 0 30px rgba(255, 0, 0, 0.9);
-    }}
-    
-    /* State: Button Pressed (JS triggers this) */
-    .round-btn.active {{
-        background-color: #990000;
-        box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
-    }}
-    
-    /* THE TIME LAP ANIMATION (Fix #4) */
-    /* A hidden div that wraps the button and shows the green circle */
-    .lap-timer {{
-        position: absolute;
-        width: 170px; /* Slightly larger than the button */
-        height: 170px;
-        border-radius: 50%;
-        border: 4px solid transparent; /* Hidden by default */
-        z-index: 5;
-    }
-    
-    /* State: Animation Active (JS triggers this) */
-    .lap-timer.active {{
-        border: 4px solid #00ff00; /* Green color for the lap */
-        animation: timeLap 2.5s linear forwards; /* 2.5s duration */
-    }
-    
-    /* The actual circling animation logic */
-    @keyframes timeLap {{
-        0% {{
-            transform: rotate(0deg);
-            border-left-color: #00ff00;
-            border-top-color: transparent;
-            border-right-color: transparent;
-            border-bottom-color: transparent;
-        }
-        25% {{
-            border-top-color: #00ff00;
-        }
-        50% {{
-            border-right-color: #00ff00;
-        }
-        75% {{
-            border-bottom-color: #00ff00;
-        }
-        100% {{
-            transform: rotate(360deg);
-            border-color: #00ff00; /* full green circle */
-        }
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+.main-card {{
+    background: rgba(10, 10, 10, 0.90);
+    padding: 20px;
+    border-radius: 15px; 
+    border: 1px solid #00d4ff;
+    text-align: center;
+    margin-bottom: 20px;
+}}
 
+div[data-testid="stButton"] > button {{
+    width: 100%; 
+    border-radius: 10px; 
+    background: #000 !important; 
+    color: #00d4ff !important; 
+    border: 1px solid #00d4ff !important; 
+    font-weight: bold;
+}}
+
+.predict-container {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 30px 0;
+    position: relative;
+}}
+
+.round-btn {{
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background-color: #ff0000;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border: 4px solid #fff;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+    z-index: 10;
+}}
+
+.lap-timer {{
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    z-index: 5;
+}}
+
+.lap-timer.active {{
+    border: 4px solid #00ff00;
+    animation: timeLap 2.5s linear forwards;
+}}
+
+@keyframes timeLap {{
+    0% {{ transform: rotate(0deg); border-left-color: #00ff00; border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }}
+    25% {{ border-top-color: #00ff00; }}
+    50% {{ border-right-color: #00ff00; }}
+    75% {{ border-bottom-color: #00ff00; }}
+    100% {{ transform: rotate(360deg); border-color: #00ff00; }}
+}}
+</style>
+""", unsafe_allow_html=True)
 # ==============================================================================
 # 3. LIVE CLOCK (JavaScript)
 # ==============================================================================
