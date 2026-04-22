@@ -17,7 +17,7 @@ if "history" not in st.session_state: st.session_state["history"] = []
 st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 
 # Replace this URL with your specific wallpaper link
-WALLPAPER_URL = "https://th.bing.com/th/id/OIP.sgOj8ZmAEcTsxC4ay-81cQHaQB?w=115&h=180&c=7&r=0&o=7&pid=1.7&rm=3"
+WALLPAPER_URL = "https://tse4.mm.bing.net/th/id/OIP.9kWG2eYB2wrEAqEhcqizGAHaEK?w=3840&h=2160&rs=1&pid=ImgDetMain&o=7&rm=3"
 st.markdown(f"""
 <style>
     .stApp {{
