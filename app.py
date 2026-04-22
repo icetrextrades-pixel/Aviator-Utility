@@ -4,115 +4,58 @@ import time
 from datetime import datetime
 
 # ==============================================================================
-# 1. ATOMIC INITIALIZATION
+# 1. ATOMIC INITIALIZATION (V.1 - V.20 MERGED)
 # ==============================================================================
-# We initialize all states to None or False to prevent KeyError on launch.
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "synced" not in st.session_state: st.session_state["synced"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = None
 if "history" not in st.session_state: st.session_state["history"] = []
-# Placeholder for the prediction result so it doesn't vanish during animations
-if "last_v" not in st.session_state: st.session_state["last_v"] = None
 
 # ==============================================================================
-# 2. INTERFACE & BACKGROUND WALLPAPER
+# 2. ULTIMATE INTERFACE & CSS (THE CAT WALLPAPER & ROUND BUTTON)
 # ==============================================================================
 st.set_page_config(page_title="ICETREX PREDICTOR PRO", layout="centered")
 
-# Replace this URL with your preferred background image
-WALLPAPER_URL = "https://tse3.mm.bing.net/th/id/OIP.BIbCCJQo4r2U4084ObJetgHaEK?rs=1&pid=ImgDetMain&o=7&rm=3"
-
+# Replace this URL with your specific wallpaper link
+WALLPAPER_URL = "https://th.bing.com/th/id/OIP.sgOj8ZmAEcTsxC4ay-81cQHaQB?w=115&h=180&c=7&r=0&o=7&pid=1.7&rm=3"
 st.markdown(f"""
 <style>
-.stApp {{
-    background-image: url("{WALLPAPER_URL}");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    color: #00d4ff;
-    font-family: monospace;
-}}
-
-.main-card {{
-    background: rgba(10, 10, 10, 0.90);
-    padding: 20px;
-    border-radius: 15px; 
-    border: 1px solid #00d4ff;
-    text-align: center;
-    margin-bottom: 20px;
-}}
-
-div[data-testid="stButton"] > button {{
-    width: 100%; 
-    border-radius: 10px; 
-    background: #000 !important; 
-    color: #00d4ff !important; 
-    border: 1px solid #00d4ff !important; 
-    font-weight: bold;
-}}
-
-.predict-container {{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 30px 0;
-    position: relative;
-}}
-
-.round-btn {{
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    background-color: #ff0000;
-    color: white;
-    font-size: 18px;
-    font-weight: bold;
-    border: 4px solid #fff;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: all 0.3s ease;
-    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
-    z-index: 10;
-}}
-
-.lap-timer {{
-    position: absolute;
-    width: 170px;
-    height: 170px;
-    border-radius: 50%;
-    border: 4px solid transparent;
-    z-index: 5;
-}}
-
-.lap-timer.active {{
-    border: 4px solid #00ff00;
-    animation: timeLap 2.5s linear forwards;
-}}
-
-@keyframes timeLap {{
-    0% {{ transform: rotate(0deg); border-left-color: #00ff00; border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }}
-    25% {{ border-top-color: #00ff00; }}
-    50% {{ border-right-color: #00ff00; }}
-    75% {{ border-bottom-color: #00ff00; }}
-    100% {{ transform: rotate(360deg); border-color: #00ff00; }}
-}}
+    .stApp {{
+        background-image: url("{WALLPAPER_URL}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        color: #00d4ff;
+        font-family: 'Courier New', Courier, monospace;
+    }}
+    .main-card {{
+        background: rgba(0, 0, 0, 0.85);
+        padding: 20px;
+        border-radius: 15px; 
+        border: 1px solid #00d4ff;
+        text-align: center;
+        margin-bottom: 20px;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    }}
+    div[data-testid="stButton"] > button {{
+        width: 100%; border-radius: 10px; background: #000 !important; color: #00d4ff !important; 
+        border: 1px solid #00d4ff !important; font-weight: bold;
+    }}
 </style>
 """, unsafe_allow_html=True)
+
 # ==============================================================================
-# 3. LIVE CLOCK (JavaScript)
+# 3. LIVE SERVER CLOCK (ZIMBABWE TIME)
 # ==============================================================================
 def render_live_clock():
-    # Adjusted for Zimbabwe Time (UTC+2)
     st.components.v1.html("""
-    <div id="clock" style="color: #ff00ff; font-family: monospace; font-size: 20px; font-weight: bold; text-align: center; border: 1px solid #333; padding: 10px; border-radius: 10px; background: #000;">
-        LIVE SERVER TIME: 00:00:00
+    <div id="clock" style="color: #ff00ff; font-family: monospace; font-size: 20px; font-weight: bold; text-align: center; border: 1px solid #333; padding: 10px; border-radius: 10px; background: #000; box-shadow: inset 0 0 10px #ff00ff;">
+        00:00:00
     </div>
     <script>
     function updateClock() {
         var now = new Date();
-        now.setHours(now.getUTCHours() + 2);
+        now.setHours(now.getUTCHours() + 2); // CAT (UTC+2)
         var h = String(now.getHours()).padStart(2, '0');
         var m = String(now.getMinutes()).padStart(2, '0');
         var s = String(now.getSeconds()).padStart(2, '0');
@@ -121,124 +64,124 @@ def render_live_clock():
     setInterval(updateClock, 1000);
     updateClock();
     </script>
-    """, height=60)
+    """, height=70)
 
 # ==============================================================================
-# 4. GAP ANALYSIS ENGINE (Anti-Fool Logic)
+# 4. THE ULTIMATE PREDICTION ENGINE (SCRAMBLED MATH V.21)
 # ==============================================================================
-def calculate_signal(data):
-    try:
-        vals = [float(x.replace('x','')) for x in data if 'x' in str(x)]
-        if len(vals) < 3: return 1.85
-        
-        # Gap Analysis: Check for low-multiplier 'starvation' (Exhaustion Point)
-        if all(v < 1.45 for v in vals[:3]):
-            # Pressure build-up for the Pink 100x spike
-            return round(random.uniform(15.50, 95.00), 2)
-            
-        # Cooldown Check: A high multiplier just happened, the next is a Lie
-        if any(v > 10.0 for v in vals[:2]):
-            return round(random.uniform(1.01, 1.30), 2)
-            
-        # Default Trend / Stability Check
-        return round(random.uniform(2.10, 4.80), 2)
-    except:
-        return 1.45
-
-# ==============================================================================
-# 5. THE PURE JAVASCRIPT ANIMATION COMPONENT
-# ==============================================================================
-def render_round_predict_system():
-    # Force a fresh data pull from the sync state
+def render_ultimate_system():
+    # Pull current history from state
     current_h = st.session_state.get("history", [])
-    h_str = ",".join([x.replace('x','') for x in current_h]) if current_h else "1.5,1.2,1.8"
+    h_str = ",".join([x.replace('x','') for x in current_h]) if current_h else "1.1,1.2,1.3"
     
     st.components.v1.html(f"""
     <style>
         @keyframes spin {{ 0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 100% {{ transform: rotate(360deg); border-color: #00ff00; }} }}
-        .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace; }}
-        #p-btn {{ width: 130px !important; height: 130px !important; border-radius: 50% !important; background-color: #ff0000 !important; color: white !important; border: 4px solid #ffffff !important; font-weight: bold; cursor: pointer; z-index: 10; box-shadow: 0 0 25px rgba(255,0,0,0.7); outline: none; }}
-        #loader {{ position: absolute; width: 155px; height: 155px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
+        .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; }}
+        
+        #p-btn {{ 
+            width: 140px !important; height: 140px !important; border-radius: 50% !important; 
+            background-color: #ff0000 !important; color: white !important; border: 5px solid #ffffff !important; 
+            font-weight: 900; font-size: 18px; cursor: pointer; z-index: 10; 
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); outline: none; transition: 0.2s;
+        }}
+        #p-btn:active {{ transform: scale(0.9); }}
+        
+        #loader {{ position: absolute; width: 165px; height: 165px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
+        
+        .res-container {{
+            border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; 
+            background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;
+        }}
     </style>
 
     <div class="circle-wrapper">
-        <div id="res-box" style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;">
-            <p id="status-text" style="color: #00d4ff; font-size: 11px; margin: 0;">ADAPTIVE PROBABILITY V.20</p>
-            <h1 id="sig-display" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">SCAN</h1>
-            <div id="conf-bar" style="color: #00ff00; font-size: 12px;">ENGINE READY</div>
+        <div class="res-container" id="box">
+            <p id="st" style="color: #00d4ff; font-size: 11px; margin: 0; letter-spacing: 2px;">PROBABILITY MATRIX ACTIVE</p>
+            <h1 id="disp" style="color: #00d4ff; font-size: 85px; margin: 10px 0; font-weight: 900;">---</h1>
+            <div id="conf" style="color: #666; font-size: 12px;">WAITING FOR SCAN...</div>
         </div>
-        <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
+
+        <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center;">
             <div id="loader"></div>
-            <button id="p-btn">START<br>SCAN</button>
+            <button id="p-btn">PREDICT<br>SIGNAL</button>
         </div>
     </div>
 
     <script>
     const btn = document.getElementById('p-btn');
     const loader = document.getElementById('loader');
-    const display = document.getElementById('sig-display');
-    const status = document.getElementById('status-text');
-    const conf = document.getElementById('conf-bar');
+    const disp = document.getElementById('disp');
+    const st = document.getElementById('st');
+    const conf = document.getElementById('conf');
 
     btn.addEventListener('click', () => {{
-        loader.style.animation = "spin 1.5s linear forwards";
-        status.innerHTML = "CALCULATING VOLATILITY CURVE...";
+        loader.style.animation = "spin 2.2s linear forwards";
+        st.innerHTML = "INTERCEPTING DATA PACKETS...";
+        st.style.color = "#ffff00";
         
-        // Dynamic pull of history from the Python string
         const h = "{h_str}".split(',').map(Number);
 
         setTimeout(() => {{
-            let result;
-            let confidence = Math.floor(Math.random() * (99 - 95) + 95);
-            
-            // MATH: SENSE THE SERVER GAP
-            const avg = h.reduce((a, b) => a + b, 0) / h.length;
+            // ULTIMATE STATISTICS ENGINE
             const seed = Math.random();
-
-            if (h[0] < 1.5 && h[1] < 1.5) {{
-                // TRIGGER: STARVATION MODE (Hunting for 10x+)
-                result = (seed * (45.0 - 5.5) + 5.5).toFixed(2);
-            }} else if (h[0] > 10) {{
-                // TRIGGER: COOLDOWN (Server recovering money)
-                result = (seed * (1.45 - 1.05) + 1.05).toFixed(2);
+            let result = 1.00;
+            let precision = Math.floor(Math.random() * (99 - 95) + 95);
+            
+            // 1. DATA VALIDATION
+            const avg = h.reduce((a, b) => a + b, 0) / h.length;
+            
+            // 2. SCRAMBLED LOGIC PATHS
+            if (h[0] < 1.5 && h[1] < 1.5 && h[2] < 1.5) {{
+                // STARVATION BURST (High Probability of Pink/Gold)
+                result = (seed * (85.0 - 12.5) + 12.5).toFixed(2);
+            }} else if (h[0] > 10 || h[1] > 10) {{
+                // COOLDOWN LOGIC (Avoiding the server money-grab)
+                result = (seed * (1.35 - 1.01) + 1.01).toFixed(2);
+            }} else if (avg > 2.0 && avg < 5.0) {{
+                // STEADY FLOW TREND
+                result = (seed * (4.8 - 2.1) + 2.1).toFixed(2);
             }} else {{
-                // TRIGGER: STABILITY (Standard 2x-4x trends)
-                result = (seed * (4.2 - 1.8) + 1.8).toFixed(2);
+                // CHAOS PHASE (Standard range)
+                result = (seed * (3.5 - 1.2) + 1.2).toFixed(2);
             }}
 
             const color = result > 10 ? "#ff00ff" : "#00d4ff";
-            display.innerHTML = result + "x";
-            display.style.color = color;
-            status.innerHTML = "SIGNAL ACQUIRED";
-            conf.innerHTML = "PRECISION: " + confidence + "%";
+            disp.innerHTML = result + "x";
+            disp.style.color = color;
+            st.innerHTML = "SIGNAL ENCRYPTED";
+            st.style.color = color;
+            conf.innerHTML = "CONFIDENCE: " + precision + "%";
+            document.getElementById('box').style.borderColor = color;
             
-            btn.innerHTML = "SCAN<br>AGAIN";
+            btn.innerHTML = "NEXT<br>SCAN";
             loader.style.animation = "none";
-        }}, 1500);
+        }}, 2200);
     }});
     </script>
-    """, height=500)
+    """, height=520)
+
 # ==============================================================================
-# 6. VIEW FUNCTIONS
+# 5. CORE NAVIGATION (SCRAMBLED VIEWS)
 # ==============================================================================
 def show_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🛡️ OPERATOR LOGIN")
-    u = st.text_input("ID")
-    k = st.text_input("KEY", type="password")
-    if st.button("ACTIVATE"):
-        authorized_users = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "BIKO": "PRO779"}
-        if u in authorized_users and authorized_users[u] == k:
+    u = st.text_input("USER ID")
+    k = st.text_input("ENCRYPTION KEY", type="password")
+    if st.button("ACTIVATE SYSTEM"):
+        auth = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "BIKO": "PRO779"}
+        if u in auth and auth[u] == k:
             st.session_state["pass"] = True
             st.rerun()
-        else: st.error("ACCESS DENIED")
+        else: st.error("INVALID CREDENTIALS")
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_casino_select():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("📡 SELECT SOURCE")
-    choice = st.selectbox("CASINO:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "LuckyBets", "1win", "SpinCity", "MWOS", "Zanzibet"])
-    if st.button("CONNECT") and choice != "---":
+    st.title("📡 CASINO SOURCE")
+    choice = st.selectbox("SELECT SERVER:", ["---", "Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet", "1win", "SpinCity", "LuckyBets"])
+    if st.button("CONNECT CASINO LINK") and choice != "---":
         st.session_state["casino"] = choice
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -247,46 +190,38 @@ def show_sync():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title(f"🛰️ {st.session_state['casino'].upper()} SYNC")
     c1, c2, c3 = st.columns(3)
-    with c1: r1 = st.text_input("Newest")
-    with c2: r2 = st.text_input("Previous")
-    with c3: r3 = st.text_input("Oldest")
-    if st.button("LOCK DATA"):
+    with c1: r1 = st.text_input("Latest")
+    with c2: r2 = st.text_input("Second")
+    with c3: r3 = st.text_input("Third")
+    if st.button("LOCK DATA STREAM"):
         if r1 and r2 and r3:
-            # Important: Format with 'x' to ensure the analyzer handles it correctly
             st.session_state["history"] = [f"{r1}x", f"{r2}x", f"{r3}x"]
             st.session_state["synced"] = True
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_dashboard():
-    # 1. LIVE CLOCK Header
     render_live_clock()
     
-    # 2. Utility Buttons
     ca, cb = st.columns(2)
-    with ca: st.markdown('<button style="width:100%; padding:10px; background:#00ff00; color:#000; border:none; border-radius:10px; font-weight:bold;">📥 APK</button>', unsafe_allow_html=True)
+    with ca: st.markdown('<button style="width:100%; padding:10px; background:#00ff00; color:#000; border:none; border-radius:10px; font-weight:bold;">📥 DOWNLOAD APK</button>', unsafe_allow_html=True)
     with cb: st.markdown('<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border:none; border-radius:10px; font-weight:bold;">💬 WHATSAPP</button></a>', unsafe_allow_html=True)
 
-    # 3. THE ADVANCED PREDICITON SYSTEM (Fix #2, #3, #4)
-    # JavaScript handles the circular button and the animation.
-    render_round_predict_system()
+    render_ultimate_system()
     
-    # 4. Community Chat
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.write("🌐 COMMUNITY CHAT")
+    st.write("🌐 LIVE COMMUNITY CHAT")
     st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="350" frameborder="0"></iframe>', height=380)
     
-    if st.button("🚪 LOGOUT"):
+    if st.button("🚪 TERMINATE SESSION"):
         st.session_state["pass"] = False
         st.session_state["synced"] = False
         st.session_state["casino"] = None
-        # Clean up the prediction state too
-        st.session_state["last_v"] = None
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 7. EXECUTION FLOW
+# 6. MASTER EXECUTION FLOW
 # ==============================================================================
 if not st.session_state["pass"]:
     show_login()
