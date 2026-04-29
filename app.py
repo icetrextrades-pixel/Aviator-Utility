@@ -128,7 +128,7 @@ def show_dashboard():
     s_val, r_val = execute_2030_neural_math(st.session_state["history"])
 
     # UI DUAL GAUGE
-    def render_pro_button(s_val, r_val):
+def render_pro_button(s_val, r_val):
     st.components.v1.html(f"""
     <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace;">
         <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
