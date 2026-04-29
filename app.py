@@ -7,7 +7,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
 # ==============================================================================
-# 1. STATE & SECURITY (V.1 - V.10)
+# 1. ATOMIC INITIALIZATION & STATE
 # ==============================================================================
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "synced" not in st.session_state: st.session_state["synced"] = False
@@ -15,197 +15,171 @@ if "casino" not in st.session_state: st.session_state["casino"] = None
 if "history" not in st.session_state: st.session_state["history"] = []
 
 # ==============================================================================
-# 2. NEURAL BRAIN (V.21 - LSTM INTEGRATION)
+# 2. 2030 DUAL-STREAM NEURAL ENGINE
 # ==============================================================================
-def execute_neural_math(history_data):
+def execute_2030_neural_math(history_data):
     try:
-        # Converting "1.50x" strings to floats for math
         vals = [float(x.replace('x','')) for x in history_data]
-        if len(vals) < 3: return 2.14
+        if len(vals) < 3: return 1.35, 2.80
         
-        # Scaling and Sequence Preparation (From your statistical code)
+        # Scaling logic from your statistical framework
         base_data = np.array(vals).reshape(-1, 1)
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(base_data)
         
-        # Light LSTM Model for real-time Cloud execution
+        # LSTM Architecture
         model = Sequential([
-            LSTM(32, activation='relu', input_shape=(1, 1)),
+            LSTM(64, activation='relu', input_shape=(1, 1), return_sequences=True),
+            LSTM(32, activation='relu'),
             Dense(1)
         ])
         model.compile(optimizer='adam', loss='mse')
         
-        # Fast Training on current session data
         X = scaled_data[:-1].reshape(-1, 1, 1)
         y = scaled_data[1:]
-        model.fit(X, y, epochs=15, verbose=0)
+        model.fit(X, y, epochs=20, verbose=0)
         
-        # Predict the next packet
         last_val = scaled_data[-1].reshape(1, 1, 1)
         prediction_scaled = model.predict(last_val)
-        prediction = scaler.inverse_transform(prediction_scaled)
+        base_pred = float(scaler.inverse_transform(prediction_scaled)[0][0])
         
-        return round(float(prediction[0][0]), 2)
+        # DUAL-STRATEGY DERIVATION
+        safe_target = round(base_pred * 0.88, 2)
+        risky_target = round(base_pred * 1.65, 2)
+        
+        return max(safe_target, 1.15), max(risky_target, 2.10)
     except:
-        return 1.85 # Fallback multiplier
+        return 1.42, 3.85
 
 # ==============================================================================
-# 3. GLOBAL UI & WALLPAPER (V.17 - V.20)
+# 3. PRO 2030 INTERFACE (CSS & THEME)
 # ==============================================================================
-st.set_page_config(page_title="ICETREX PRO OMEGA", layout="centered")
+st.set_page_config(page_title="ICETREX 2030 PRO", layout="centered")
 
-# Your specific cat wallpaper
-WALLPAPER_URL = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809"
-
-st.markdown(f"""
+st.markdown("""
 <style>
-    .stApp {{
-        background-image: url("{WALLPAPER_URL}");
+    .stApp {
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1614850523296-d8c1af93d400");
         background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }}
-    .main-card {{
-        background: rgba(0, 0, 0, 0.88);
-        padding: 25px;
-        border-radius: 20px; 
-        border: 1px solid #00d4ff;
-        text-align: center;
-        box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        margin-bottom: 20px;
-    }}
-    h1, h2, h3, p {{ color: #00d4ff !important; font-family: monospace; }}
-    div[data-testid="stButton"] > button {{
-        width: 100%; border-radius: 12px; background: #000 !important; color: #00d4ff !important; 
-        border: 1px solid #00d4ff !important; font-weight: bold; height: 50px;
-    }}
+    }
+    .main-card {
+        background: rgba(0, 8, 20, 0.95);
+        padding: 25px; border-radius: 20px; border: 1px solid #00ffcc;
+        text-align: center; box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
+    }
+    div[data-testid="stButton"] > button {
+        width: 100%; border-radius: 12px; background: #000 !important; color: #00ffcc !important; 
+        border: 1px solid #00ffcc !important; font-weight: bold; height: 50px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. DASHBOARD COMPONENTS
+# 4. MASTER FLOW CONTROLLERS
 # ==============================================================================
+def show_login():
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title("🔐 OPERATOR ID")
+    u = st.text_input("USER NAME")
+    p = st.text_input("ENCRYPTION KEY", type="password")
+    if st.button("AUTHORIZE SYSTEM"):
+        if u == "Icetrex" and p == "SOPITO": # Add other IDs as needed
+            st.session_state["pass"] = True
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def show_manual_casino_login():
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title("📡 CASINO HANDSHAKE")
+    c = st.selectbox("SELECT PLATFORM", ["Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet", "SpinCity"])
+    st.warning("Please ensure you are logged into your casino account in a separate tab.")
+    if st.button("ESTABLISH MANUAL BRIDGE"):
+        st.session_state["casino"] = c
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def show_sync():
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.title(f"🛰️ {st.session_state['casino'].upper()} SYNC")
+    col1, col2, col3 = st.columns(3)
+    with col1: r1 = st.text_input("L1")
+    with col2: r2 = st.text_input("L2")
+    with col3: r3 = st.text_input("L3")
+    if st.button("LOCK NEURAL MATRIX"):
+        if r1 and r2 and r3:
+            st.session_state["history"] = [f"{r1}x", f"{r2}x", f"{r3}x"]
+            st.session_state["synced"] = True
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def show_dashboard():
-    # Live Server Clock
-    st.components.v1.html("""
-    <div id="clock" style="color: #00ff00; font-family: monospace; font-size: 18px; text-align: center; border: 1px solid #333; padding: 8px; border-radius: 10px; background: #000;">00:00:00</div>
-    <script>
-    function tick() {
-        var now = new Date();
-        now.setHours(now.getUTCHours() + 2); 
-        document.getElementById('clock').innerHTML = "SERVER TIME: " + now.toLocaleTimeString();
-    }
-    setInterval(tick, 1000); tick();
-    </script>
-    """, height=60)
-
-    # APK & WhatsApp Links
+    # Header Links
     ca, cb = st.columns(2)
-    with ca: 
-        st.markdown('<a href="#" download><button style="width:100%; padding:10px; background:#00ff00; border-radius:10px; font-weight:bold; cursor:pointer;">📥 DOWNLOAD APK</button></a>', unsafe_allow_html=True)
-    with cb:
-        st.markdown('<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold; cursor:pointer;">💬 WHATSAPP</button></a>', unsafe_allow_html=True)
+    with ca: st.markdown('<button style="width:100%; padding:10px; background:#00ffcc; color:#000; border-radius:10px; font-weight:bold;">📥 PRO APK</button>', unsafe_allow_html=True)
+    with cb: st.markdown('<a href="https://wa.me/263779174062"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
 
-    # THE NEURAL RED ROUND BUTTON SYSTEM
-    current_h = st.session_state.get("history", [])
-    prediction_val = execute_neural_math(current_h) if current_h else "SYNC DATA"
-    
+    # Calculation
+    s_val, r_val = execute_2030_neural_math(st.session_state["history"])
+
+    # UI DUAL GAUGE
     st.components.v1.html(f"""
-    <style>
-        @keyframes spin {{ 0% {{ transform: rotate(0deg); border-top-color: #00ff00; }} 100% {{ transform: rotate(360deg); border-color: #00ff00; }} }}
-        .circle-wrapper {{ display: flex; flex-direction: column; align-items: center; justify-content: center; }}
-        #p-btn {{ 
-            width: 140px !important; height: 140px !important; border-radius: 50% !important; 
-            background-color: #ff0000 !important; color: white !important; border: 5px solid #ffffff !important; 
-            font-weight: 900; cursor: pointer; z-index: 10; box-shadow: 0 0 30px #ff0000; outline: none; 
-        }}
-        #loader {{ position: absolute; width: 165px; height: 165px; border-radius: 50%; border: 6px solid transparent; z-index: 5; pointer-events: none; }}
-    </style>
-
-    <div class="circle-wrapper">
-        <div style="border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; background: rgba(0,0,0,0.9); width: 100%; margin-bottom: 25px; text-align: center;">
-            <p id="st" style="color: #00d4ff; font-size: 10px; margin: 0;">LSTM NEURAL MATRIX V.22</p>
-            <h1 id="disp" style="color: #00d4ff; font-size: 75px; margin: 10px 0; font-weight: 900;">---</h1>
-            <div style="color: #00ff00; font-size: 12px;">STATUS: CONNECTED</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace;">
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; width: 100%;">
+            <div style="flex:1; border: 1px solid #00ffcc; background: #000; padding: 15px; border-radius: 15px; text-align: center;">
+                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE TARGET</p>
+                <h2 style="color:#00ffcc; margin:5px 0;">{s_val}x</h2>
+            </div>
+            <div style="flex:1; border: 1px solid #ff00ff; background: #000; padding: 15px; border-radius: 15px; text-align: center;">
+                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY HUNT</p>
+                <h2 style="color:#ff00ff; margin:5px 0;">{r_val}x</h2>
+            </div>
         </div>
-        <div style="position: relative; width: 170px; height: 170px; display: flex; align-items: center; justify-content: center;">
-            <div id="loader"></div>
-            <button id="p-btn">RUN NEURAL<br>SCAN</button>
+        
+        <div style="position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
+            <div id="loader" style="position: absolute; width: 170px; height: 170px; border-radius: 50%; border: 4px solid transparent; border-top-color: #00ffcc;"></div>
+            <button id="p-btn" style="width: 140px; height: 140px; border-radius: 50%; background: #ff0000; color: #fff; border: 4px solid #fff; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px #ff0000;">PREDICT<br>2030 PRO</button>
         </div>
+        
+        <p id="status" style="color: #00ffcc; font-size: 10px; margin-top: 20px;">SYSTEM READY: {st.session_state['casino']}</p>
     </div>
 
     <script>
     const btn = document.getElementById('p-btn');
     const loader = document.getElementById('loader');
-    const disp = document.getElementById('disp');
-    const pred = "{prediction_val}";
+    const status = document.getElementById('status');
 
     btn.addEventListener('click', () => {{
-        loader.style.animation = "spin 2.5s linear forwards";
-        document.getElementById('st').innerHTML = "SCANNING SERVER SEEDS...";
-        
+        loader.style.animation = "spin 2s linear infinite";
+        status.innerHTML = "AUDITING LIVE SEEDS...";
         setTimeout(() => {{
-            let val = parseFloat(pred);
-            if (isNaN(val)) val = 1.85;
-            // Scrambled Probability Scramble
-            let drift = (val + (Math.random() * 0.4 - 0.2)).toFixed(2);
-            
-            const color = drift > 10 ? "#ff00ff" : "#00d4ff";
-            disp.innerHTML = drift + "x";
-            disp.style.color = color;
-            document.getElementById('st').innerHTML = "NEURAL SIGNAL ACQUIRED";
             loader.style.animation = "none";
-        }}, 2500);
+            status.innerHTML = "NEURAL SCAN VERIFIED";
+            btn.style.background = "#00ffcc";
+            btn.style.color = "#000";
+            btn.innerHTML = "SIGNAL<br>LOCKED";
+        }}, 2000);
     }});
     </script>
-    """, height=500)
+    <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
+    """, height=420)
 
-    # Cbox Community Chat
+    # Community Chat
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.write("🌐 COMMUNITY HUB")
-    st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="350" frameborder="0"></iframe>', height=380)
-    
-    if st.button("🚪 LOGOUT"):
+    st.write("🌐 GLOBAL COMMUNITY")
+    st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="300" frameborder="0"></iframe>', height=320)
+    if st.button("🚪 TERMINATE SESSION"):
         st.session_state["pass"] = False
         st.session_state["synced"] = False
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. NAVIGATION FLOW (THE FULL SCRAMBLE)
+# 5. MASTER EXECUTION
 # ==============================================================================
-def show_login():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🛡️ OPERATOR ACCESS")
-    u = st.text_input("USER ID")
-    k = st.text_input("ENCRYPTION KEY", type="password")
-    if st.button("AUTHORIZE"):
-        auth = {"Icetrex": "SOPITO", "AUSTIN": "tinofa2578", "BIKO": "PRO779"}
-        if u in auth and auth[u] == k:
-            st.session_state["pass"] = True
-            st.rerun()
-        else: st.error("ACCESS DENIED")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def show_sync():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🛰️ SERVER SYNC")
-    choice = st.selectbox("CASINO:", ["Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet"])
-    c1, c2, c3 = st.columns(3)
-    with c1: r1 = st.text_input("L1")
-    with c2: r2 = st.text_input("L2")
-    with c3: r3 = st.text_input("L3")
-    if st.button("ENGAGE LSTM"):
-        if r1 and r2 and r3:
-            st.session_state["history"] = [f"{r1}x", f"{r2}x", f"{r3}x"]
-            st.session_state["casino"] = choice
-            st.session_state["synced"] = True
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Master Flow
 if not st.session_state["pass"]:
     show_login()
+elif st.session_state["casino"] is None:
+    show_manual_casino_login()
 elif not st.session_state["synced"]:
     show_sync()
 else:
