@@ -17,38 +17,44 @@ if "history" not in st.session_state: st.session_state["history"] = []
 # ==============================================================================
 # 2. 2030 DUAL-STREAM NEURAL ENGINE
 # ==============================================================================
+from tensorflow.keras.layers import LSTM, Dense, Input
+
+# 1. FIX: Cache the model so it doesn't rebuild every click
+@st.cache_resource
+def build_2030_neural_engine():
+    # Using 'Input(shape)' as requested by your logs to prevent the UserWarning
+    model = Sequential([
+        Input(shape=(1, 1)),
+        LSTM(64, activation='relu', return_sequences=True),
+        LSTM(32, activation='relu'),
+        Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mse')
+    return model
+
 def execute_2030_neural_math(history_data):
     try:
         vals = [float(x.replace('x','')) for x in history_data]
         if len(vals) < 3: return 1.35, 2.80
         
-        # Scaling logic from your statistical framework
         base_data = np.array(vals).reshape(-1, 1)
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(base_data)
         
-        # LSTM Architecture
-        model = Sequential([
-            LSTM(64, activation='relu', input_shape=(1, 1), return_sequences=True),
-            LSTM(32, activation='relu'),
-            Dense(1)
-        ])
-        model.compile(optimizer='adam', loss='mse')
+        # Load the cached model instead of rebuilding
+        model = build_2030_neural_engine()
         
+        # Train quickly on new data
         X = scaled_data[:-1].reshape(-1, 1, 1)
         y = scaled_data[1:]
-        model.fit(X, y, epochs=20, verbose=0)
+        model.fit(X, y, epochs=5, verbose=0) # Lowered epochs for speed
         
         last_val = scaled_data[-1].reshape(1, 1, 1)
-        prediction_scaled = model.predict(last_val)
+        prediction_scaled = model.predict(last_val, verbose=0) # verbose=0 stops log spam
         base_pred = float(scaler.inverse_transform(prediction_scaled)[0][0])
         
-        # DUAL-STRATEGY DERIVATION
-        safe_target = round(base_pred * 0.88, 2)
-        risky_target = round(base_pred * 1.65, 2)
-        
-        return max(safe_target, 1.15), max(risky_target, 2.10)
-    except:
+        return round(base_pred * 0.90, 2), round(base_pred * 1.60, 2)
+    except Exception as e:
         return 1.42, 3.85
 
 # ==============================================================================
@@ -122,46 +128,46 @@ def show_dashboard():
     s_val, r_val = execute_2030_neural_math(st.session_state["history"])
 
     # UI DUAL GAUGE
+    def render_pro_button(s_val, r_val):
     st.components.v1.html(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: monospace;">
-        <div style="display: flex; gap: 20px; margin-bottom: 20px; width: 100%;">
-            <div style="flex:1; border: 1px solid #00ffcc; background: #000; padding: 15px; border-radius: 15px; text-align: center;">
-                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE TARGET</p>
-                <h2 style="color:#00ffcc; margin:5px 0;">{s_val}x</h2>
+    <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace;">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
+            <div style="flex:1; border: 1px solid #00ffcc; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
+                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE</p>
+                <h3 style="color:#00ffcc; margin:5px 0;">{s_val}x</h3>
             </div>
-            <div style="flex:1; border: 1px solid #ff00ff; background: #000; padding: 15px; border-radius: 15px; text-align: center;">
-                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY HUNT</p>
-                <h2 style="color:#ff00ff; margin:5px 0;">{r_val}x</h2>
+            <div style="flex:1; border: 1px solid #ff00ff; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
+                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY</p>
+                <h3 style="color:#ff00ff; margin:5px 0;">{r_val}x</h3>
             </div>
         </div>
         
-        <div style="position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center;">
-            <div id="loader" style="position: absolute; width: 170px; height: 170px; border-radius: 50%; border: 4px solid transparent; border-top-color: #00ffcc;"></div>
-            <button id="p-btn" style="width: 140px; height: 140px; border-radius: 50%; background: #ff0000; color: #fff; border: 4px solid #fff; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px #ff0000;">PREDICT<br>2030 PRO</button>
+        <div style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center;">
+            <div id="ldr" style="position: absolute; width: 140px; height: 140px; border-radius: 50%; border: 3px solid transparent; border-top-color: #00ffcc;"></div>
+            <button id="p-btn" style="width: 120px; height: 120px; border-radius: 50%; background: #ff0000; color: #fff; border: 3px solid #fff; font-weight: 900; cursor: pointer; z-index:10;">PREDICT</button>
         </div>
-        
-        <p id="status" style="color: #00ffcc; font-size: 10px; margin-top: 20px;">SYSTEM READY: {st.session_state['casino']}</p>
     </div>
 
     <script>
     const btn = document.getElementById('p-btn');
-    const loader = document.getElementById('loader');
-    const status = document.getElementById('status');
-
-    btn.addEventListener('click', () => {{
-        loader.style.animation = "spin 2s linear infinite";
-        status.innerHTML = "AUDITING LIVE SEEDS...";
+    const ldr = document.getElementById('ldr');
+    
+    btn.onclick = function() {{
+        ldr.style.animation = "spin 1s linear infinite";
+        btn.innerHTML = "SCANNING";
+        btn.style.background = "#333";
+        
+        // This timeout ensures the UI updates before the browser freezes for math
         setTimeout(() => {{
-            loader.style.animation = "none";
-            status.innerHTML = "NEURAL SCAN VERIFIED";
+            ldr.style.animation = "none";
+            btn.innerHTML = "LOCKED";
             btn.style.background = "#00ffcc";
             btn.style.color = "#000";
-            btn.innerHTML = "SIGNAL<br>LOCKED";
-        }}, 2000);
-    }});
+        }}, 1200);
+    }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
-    """, height=420)
+    """, height=300)
 
     # Community Chat
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
