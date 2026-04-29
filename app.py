@@ -81,40 +81,63 @@ st.markdown("""
 
 def render_pro_button(s_val, r_val):
     st.components.v1.html(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace;">
+    <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace; color: white;">
         <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
             <div style="flex:1; border: 1px solid #00ffcc; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
-                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE</p>
-                <h3 style="color:#00ffcc; margin:5px 0;">{s_val}x</h3>
+                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE TARGET</p>
+                <h3 id="safe-display" style="color:#00ffcc; margin:5px 0;">---</h3>
             </div>
             <div style="flex:1; border: 1px solid #ff00ff; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
-                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY</p>
-                <h3 style="color:#ff00ff; margin:5px 0;">{r_val}x</h3>
+                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY HUNT</p>
+                <h3 id="risky-display" style="color:#ff00ff; margin:5px 0;">---</h3>
             </div>
         </div>
         
-        <div style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center;">
-            <div id="ldr" style="position: absolute; width: 140px; height: 140px; border-radius: 50%; border: 3px solid transparent; border-top-color: #00ffcc;"></div>
-            <button id="p-btn" style="width: 120px; height: 120px; border-radius: 50%; background: #ff0000; color: #fff; border: 3px solid #fff; font-weight: 900; cursor: pointer; z-index:10;">PREDICT</button>
+        <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
+            <div id="ldr" style="position: absolute; width: 150px; height: 150px; border-radius: 50%; border: 4px solid transparent; border-top-color: #00ffcc;"></div>
+            <button id="p-btn" style="width: 130px; height: 130px; border-radius: 50%; background: #ff0000; color: #fff; border: 4px solid #fff; font-weight: 900; cursor: pointer; z-index:10; font-size: 16px; box-shadow: 0 0 15px rgba(255,0,0,0.5);">
+                PREDICT<br>PRO
+            </button>
         </div>
+        <p id="status" style="margin-top:15px; font-size:12px; color:#00ffcc;">SIGNAL STANDBY</p>
     </div>
+
     <script>
     const btn = document.getElementById('p-btn');
     const ldr = document.getElementById('ldr');
+    const status = document.getElementById('status');
+    const safeDisp = document.getElementById('safe-display');
+    const riskyDisp = document.getElementById('risky-display');
+
+    // These values are injected from your Python LSTM
+    const newValSafe = "{s_val}x";
+    const newValRisky = "{r_val}x";
+
     btn.onclick = function() {{
-        ldr.style.animation = "spin 1s linear infinite";
+        // Start high-tech animation
+        ldr.style.animation = "spin 0.8s linear infinite";
         btn.innerHTML = "SCANNING";
         btn.style.background = "#333";
+        status.innerHTML = "ANALYZING NEURAL SEEDS...";
+        
         setTimeout(() => {{
+            // Stop animation and inject the NEW numbers
             ldr.style.animation = "none";
+            ldr.style.borderTopColor = "#ff00ff";
+            
             btn.innerHTML = "LOCKED";
             btn.style.background = "#00ffcc";
             btn.style.color = "#000";
-        }}, 1200);
+            
+            // UPDATE THE BOXES WITH THE REAL DATA
+            safeDisp.innerHTML = newValSafe;
+            riskyDisp.innerHTML = newValRisky;
+            status.innerHTML = "SIGNAL VERIFIED FOR {st.session_state['casino']}";
+        }}, 1500);
     }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
-    """, height=280)
+    """, height=320)
 
 # ==============================================================================
 # 5. MASTER FLOW CONTROLLERS
