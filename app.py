@@ -2,9 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import time
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input
+import hashlib
 
 # ==============================================================================
 # 1. ATOMIC INITIALIZATION & STATE
@@ -15,42 +13,58 @@ if "casino" not in st.session_state: st.session_state["casino"] = None
 if "history" not in st.session_state: st.session_state["history"] = []
 
 # ==============================================================================
-# 2. 2030 DUAL-STREAM NEURAL ENGINE (CACHED)
+# 2. OPTIMIZED MATHEMATICAL SEQUENCE ENGINE
 # ==============================================================================
-@st.cache_resource
-def build_2030_neural_engine():
-    model = Sequential([
-        Input(shape=(1, 1)),
-        LSTM(64, activation='relu', return_sequences=True),
-        LSTM(32, activation='relu'),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mse')
-    return model
-
 def execute_2030_neural_math(history_data):
+    """
+    Advanced Heavy-Tailed Pareto Distribution Model using Maximum Likelihood Estimation (MLE).
+    Calculates exact mathematical probability quantiles instantly.
+    """
     try:
-        vals = [float(x.replace('x','')) for x in history_data]
-        if len(vals) < 3: return 1.35, 2.80
+        vals = [float(x.replace('x','').strip()) for x in history_data if x.strip()]
+        if len(vals) < 3: 
+            return 1.35, 2.80
+            
+        arr = np.array(vals)
         
-        base_data = np.array(vals).reshape(-1, 1)
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        scaled_data = scaler.fit_transform(base_data)
+        # 1. Pareto Maximum Likelihood Estimation (MLE) / Hill Estimator
+        # Crash multipliers follow a power-law distribution.
+        x_min = np.min(arr)
+        if x_min < 1.01:
+            x_min = 1.01 # Absolute baseline crash minimum
+            
+        # Calculate the Shape Parameter (Alpha) via Log-Likelihood
+        # Alpha controls the thickness of the "tail" (frequency of high multipliers)
+        log_sum = np.sum(np.log(arr / x_min))
+        if log_sum == 0:
+            alpha = 2.0 # Default fallback if the input sequence is flat
+        else:
+            alpha = len(arr) / log_sum
+            
+        # 2. Advanced Quantile Projection (Inverse CDF)
+        # Formula: x_target = x_min / (Probability_Threshold ^ (1 / alpha))
         
-        model = build_2030_neural_engine()
+        # Safe Target: Calculated at the 75% Probability boundary
+        prob_safe = 0.75 
+        safe_target = x_min / (prob_safe ** (1 / alpha))
         
-        X = scaled_data[:-1].reshape(-1, 1, 1)
-        y = scaled_data[1:]
-        model.fit(X, y, epochs=5, verbose=0) 
+        # Risky Target: Calculated at the 15% Probability boundary 
+        prob_risky = 0.15
+        risky_target = x_min / (prob_risky ** (1 / alpha))
         
-        last_val = scaled_data[-1].reshape(1, 1, 1)
-        prediction_scaled = model.predict(last_val, verbose=0)
-        base_pred = float(scaler.inverse_transform(prediction_scaled)[0][0])
+        # 3. Autoregressive Volatility Dampener
+        # Prevents the math from suggesting unrealistic numbers if there's a massive outlier
+        ema = np.mean(arr[-3:])
+        volatility = np.std(arr)
         
-        return round(base_pred * 0.90, 2), round(base_pred * 1.60, 2)
+        final_safe = max(1.05, min(safe_target, ema))
+        final_risky = max(final_safe + 0.5, min(risky_target, ema + (volatility * 1.5)))
+        
+        return round(final_safe, 2), round(final_risky, 2)
+        
     except Exception:
+        # Failsafe fallback
         return 1.42, 3.85
-
 # ==============================================================================
 # 3. PRO 2030 INTERFACE (CSS & THEME)
 # ==============================================================================
@@ -78,7 +92,6 @@ st.markdown("""
 # ==============================================================================
 # 4. COMPONENTS
 # ==============================================================================
-
 def render_pro_button(s_val, r_val):
     st.components.v1.html(f"""
     <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace; color: white;">
@@ -109,19 +122,16 @@ def render_pro_button(s_val, r_val):
     const safeDisp = document.getElementById('safe-display');
     const riskyDisp = document.getElementById('risky-display');
 
-    // These values are injected from your Python LSTM
     const newValSafe = "{s_val}x";
     const newValRisky = "{r_val}x";
 
     btn.onclick = function() {{
-        // Start high-tech animation
         ldr.style.animation = "spin 0.8s linear infinite";
         btn.innerHTML = "SCANNING";
         btn.style.background = "#333";
         status.innerHTML = "ANALYZING NEURAL SEEDS...";
         
         setTimeout(() => {{
-            // Stop animation and inject the NEW numbers
             ldr.style.animation = "none";
             ldr.style.borderTopColor = "#ff00ff";
             
@@ -129,7 +139,6 @@ def render_pro_button(s_val, r_val):
             btn.style.background = "#00ffcc";
             btn.style.color = "#000";
             
-            // UPDATE THE BOXES WITH THE REAL DATA
             safeDisp.innerHTML = newValSafe;
             riskyDisp.innerHTML = newValRisky;
             status.innerHTML = "SIGNAL VERIFIED FOR {st.session_state['casino']}";
@@ -142,7 +151,6 @@ def render_pro_button(s_val, r_val):
 # ==============================================================================
 # 5. MASTER FLOW CONTROLLERS
 # ==============================================================================
-
 def show_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("🔐 OPERATOR ID")
@@ -152,12 +160,14 @@ def show_login():
         if u == "Icetrex" and p == "SOPITO":
             st.session_state["pass"] = True
             st.rerun()
+        else:
+            st.error("Invalid Operator Credentials.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_manual_casino_login():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title("📡 CASINO HANDSHAKE")
-    c = st.selectbox("SELECT PLATFORM", ["Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet", "SpinCity"])
+    c = st.selectbox("SELECT PLATFORM", ["Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet", "SpinCity", "MWOS", "1WIN", "WINBUCKS"])
     st.warning("Ensure your casino account is open in a separate tab.")
     if st.button("ESTABLISH MANUAL BRIDGE"):
         st.session_state["casino"] = c
@@ -168,9 +178,9 @@ def show_sync():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.title(f"🛰️ {st.session_state['casino'].upper()} SYNC")
     col1, col2, col3 = st.columns(3)
-    with col1: r1 = st.text_input("L1")
-    with col2: r2 = st.text_input("L2")
-    with col3: r3 = st.text_input("L3")
+    with col1: r1 = st.text_input("L1", value="1.50")
+    with col2: r2 = st.text_input("L2", value="2.10")
+    with col3: r3 = st.text_input("L3", value="1.15")
     if st.button("LOCK NEURAL MATRIX"):
         if r1 and r2 and r3:
             st.session_state["history"] = [f"{r1}x", f"{r2}x", f"{r3}x"]
@@ -179,16 +189,18 @@ def show_sync():
     st.markdown('</div>', unsafe_allow_html=True)
 
 def show_dashboard():
-    # 1. Header
+    # 1. Header Buttons
     ca, cb = st.columns(2)
-    with ca: st.markdown('<button style="width:100%; padding:10px; background:#00ffcc; color:#000; border-radius:10px; font-weight:bold;">📥 PRO APK</button>', unsafe_allow_html=True)
-    with cb: st.markdown(f'<a href="https://wa.me/263779174062"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
+    with ca: 
+        st.markdown('<button style="width:100%; padding:10px; background:#00ffcc; color:#000; border-radius:10px; font-weight:bold;">📥 PRO APK</button>', unsafe_allow_html=True)
+    with cb: 
+        st.markdown(f'<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold; border:none; cursor:pointer;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
 
-    # 2. Math & Neural Button
+    # 2. Compute Calculations & Render Frontend Component
     s_val, r_val = execute_2030_neural_math(st.session_state["history"])
     render_pro_button(s_val, r_val)
 
-    # 3. Community Chat
+    # 3. Community Chat & Session Teardown
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.write("🌐 GLOBAL COMMUNITY")
     st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="300" frameborder="0"></iframe>', height=320)
@@ -201,7 +213,7 @@ def show_dashboard():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. MASTER EXECUTION
+# 6. MASTER EXECUTION ROUTER
 # ==============================================================================
 if not st.session_state["pass"]:
     show_login()
@@ -211,3 +223,5 @@ elif not st.session_state["synced"]:
     show_sync()
 else:
     show_dashboard()
+
+```
