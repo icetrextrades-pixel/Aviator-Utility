@@ -200,13 +200,15 @@ def show_dashboard():
     with ca: 
         st.markdown('<button style="width:100%; padding:10px; background:#00ffcc; color:#000; border-radius:10px; font-weight:bold;">📥 PRO APK</button>', unsafe_allow_html=True)
     with cb: 
-        st.markdown(f'<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold; border:none; cursor:pointer;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
+        st.markdown('<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold; border:none; cursor:pointer;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
 
-    # 2. Compute Calculations & Render Frontend Component
-   mu, sigma, momentum, tail_index = execute_2030_neural_math(st.session_state["history"])
-    render_pro_button(mu, sigma, momentum, tail_index)
+    # 2. Extract 4 deep parameters from the stochastic engine
+    mu, sigma, momentum, tail_index = execute_2030_neural_math(st.session_state["history"])
     
-    # 3. Community Chat & Session Teardown
+    # 3. Pass all 4 into the Live JavaScript Component
+    render_pro_button(mu, sigma, momentum, tail_index)
+
+    # 4. Community Chat & Session Teardown
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.write("🌐 GLOBAL COMMUNITY")
     st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="300" frameborder="0"></iframe>', height=320)
