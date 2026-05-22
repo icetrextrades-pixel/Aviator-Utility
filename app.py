@@ -122,8 +122,9 @@ def render_pro_button(s_val, r_val):
     const safeDisp = document.getElementById('safe-display');
     const riskyDisp = document.getElementById('risky-display');
 
-    const newValSafe = "{s_val}x";
-    const newValRisky = "{r_val}x";
+    // Base math passed from Python's Pareto/MLE calculations
+    const baseSafe = parseFloat("{s_val}");
+    const baseRisky = parseFloat("{r_val}");
 
     btn.onclick = function() {{
         ldr.style.animation = "spin 0.8s linear infinite";
@@ -139,15 +140,20 @@ def render_pro_button(s_val, r_val):
             btn.style.background = "#00ffcc";
             btn.style.color = "#000";
             
-            safeDisp.innerHTML = newValSafe;
-            riskyDisp.innerHTML = newValRisky;
+            // INSANE MATH: Inject a live seed-based variance multiplier on click 
+            // This ensures clicking the button multiple times shifts the calculations dynamically
+            const liveVariance = 1 + (Math.random() * 0.08 - 0.04); // +/- 4% fluid shift
+            const computedSafe = (baseSafe * liveVariance).toFixed(2);
+            const computedRisky = (baseRisky * (1 + (Math.random() * 0.20 - 0.10))).toFixed(2);
+            
+            safeDisp.innerHTML = computedSafe + "x";
+            riskyDisp.innerHTML = computedRisky + "x";
             status.innerHTML = "SIGNAL VERIFIED FOR {st.session_state['casino']}";
         }}, 1500);
     }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
     """, height=320)
-
 # ==============================================================================
 # 5. MASTER FLOW CONTROLLERS
 # ==============================================================================
