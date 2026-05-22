@@ -223,5 +223,3 @@ elif not st.session_state["synced"]:
     show_sync()
 else:
     show_dashboard()
-
-```
