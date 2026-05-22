@@ -1,233 +1,286 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import time
-import hashlib
+from datetime import datetime
+import pytz
 
 # ==============================================================================
 # 1. ATOMIC INITIALIZATION & STATE
 # ==============================================================================
 if "pass" not in st.session_state: st.session_state["pass"] = False
-if "synced" not in st.session_state: st.session_state["synced"] = False
-if "casino" not in st.session_state: st.session_state["casino"] = None
-if "history" not in st.session_state: st.session_state["history"] = []
+if "casino" not in st.session_state: st.session_state["casino"] = "AFRIBET"
+if "history" not in st.session_state: st.session_state["history"] = ["1.50x", "2.10x", "1.15x"]
+
+# Set page config globally
+st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_sidebar_state="collapsed")
 
 # ==============================================================================
-# 2. OPTIMIZED MATHEMATICAL SEQUENCE ENGINE
+# 2. STOCHASTIC MATH ENGINE (PRESERVED)
 # ==============================================================================
 def execute_2030_neural_math(history_data):
-    """
-    Analyzes historical arrays using Log Returns and Extreme Value Theory.
-    Instead of passing a fixed target, it passes the exact mathematical 
-    parameters (Mu, Sigma, Momentum, Tail) to the live client matrix.
-    """
+    """Calculates live stochastic parameters for the client-side Jump-Diffusion."""
     try:
         vals = [float(x.replace('x','').strip()) for x in history_data if x.strip()]
         if len(vals) < 3: 
-            return 1.45, 0.20, 0.05, 2.0  # Default parameters
+            return 1.45, 0.20, 0.05, 2.0
             
         arr = np.array(vals)
-        
-        # 1. Standard Geometric Brownian Motion parameters
         mu = np.mean(arr)
-        sigma = np.std(arr) + 0.001 # Prevent zero division
-        
-        # 2. Log-Return Momentum (Hurst Proxy)
+        sigma = np.std(arr) + 0.001
         log_returns = np.diff(np.log(arr))
         momentum = np.mean(log_returns) if len(log_returns) > 0 else 0
+        tail_index = np.max(arr) / mu if mu > 0 else 2.0
         
-        # 3. Fréchet Extreme Value Tail Index
-        # Measures the weight of the "jump" probability based on recent outliers
-        max_val = np.max(arr)
-        tail_index = max_val / mu if mu > 0 else 2.0
-        
-        # Cap tail index purely to prevent JavaScript infinity loops, 
-        # but allow massive standard deviation spikes.
         return mu, sigma, momentum, min(tail_index, 15.0)
-        
     except Exception:
         return 1.45, 0.20, 0.05, 2.0
-# ==============================================================================
-# 3. PRO 2030 INTERFACE (CSS & THEME)
-# ==============================================================================
-st.set_page_config(page_title="ICETREX 2030 PRO", layout="centered")
 
-st.markdown("""
+# ==============================================================================
+# 3. DYNAMIC CSS INJECTION (IMAGE MATCHING)
+# ==============================================================================
+LOGIN_CSS = """
 <style>
-    .stApp {
-        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1614850523296-d8c1af93d400");
-        background-size: cover;
+    .stApp { background-color: #050508; color: white; }
+    
+    /* Login Card Replication */
+    .login-container {
+        background: #0a0a10; border: 1px solid #2a1644; border-radius: 20px;
+        padding: 50px 30px; text-align: center; max-width: 450px; margin: 40px auto;
+        box-shadow: 0 0 40px rgba(80, 20, 150, 0.1);
     }
-    .main-card {
-        background: rgba(0, 8, 20, 0.95);
-        padding: 25px; border-radius: 20px; border: 1px solid #00ffcc;
-        text-align: center; box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
-        margin-bottom: 20px;
+    
+    /* Padlock Icon */
+    .padlock-wrapper {
+        width: 80px; height: 80px; border-radius: 50%; border: 2px solid #5b21b6;
+        margin: 0 auto 30px auto; display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 20px rgba(91, 33, 182, 0.3);
     }
+    
+    /* Text Styling */
+    .title-aviator { font-size: 32px; font-weight: 900; font-style: italic; color: white; margin: 0; }
+    .title-signals { font-size: 32px; font-weight: 900; font-style: italic; color: #a855f7; margin: 0; }
+    .subtext { font-size: 10px; letter-spacing: 4px; color: #6b21a8; margin-top: 10px; margin-bottom: 40px; font-weight: bold; }
+    .footer-text { font-size: 9px; letter-spacing: 3px; color: #3f3f46; margin-top: 40px; }
+
+    /* Streamlit Input Override */
+    div[data-baseweb="input"] { background-color: #000 !important; border: 1px solid #2a1644 !important; border-radius: 12px !important; }
+    div[data-baseweb="input"] input { color: #a855f7 !important; text-align: center !important; font-weight: bold; letter-spacing: 2px; }
+    
+    /* Streamlit Button Override */
     div[data-testid="stButton"] > button {
-        width: 100%; border-radius: 12px; background: #000 !important; color: #00ffcc !important; 
-        border: 1px solid #00ffcc !important; font-weight: bold; height: 50px;
+        background: linear-gradient(90deg, #9333ea, #db2777) !important;
+        color: white !important; border: none !important; border-radius: 12px !important;
+        padding: 12px 0 !important; font-weight: 900 !important; letter-spacing: 1.5px !important;
+        width: 100% !important; margin-top: 15px !important; transition: all 0.3s ease;
     }
+    div[data-testid="stButton"] > button:hover { box-shadow: 0 0 20px rgba(219, 39, 119, 0.5) !important; }
+    
+    /* Hide top header */
+    header { display: none !important; }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+DASHBOARD_CSS = """
+<style>
+    .stApp { background-color: #030805; color: white; font-family: 'Inter', sans-serif; }
+    
+    /* Top Nav Fakes */
+    .top-nav { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 20px; }
+    .top-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+    .tab { flex: 1; text-align: center; padding: 12px; border-radius: 10px; font-size: 12px; font-weight: bold; border: 1px solid #1f2937; background: #050505; color: #6b7280; }
+    .tab.active { background: #059669; color: #000; border: none; box-shadow: 0 0 15px rgba(5, 150, 105, 0.4); }
+
+    /* Title Section */
+    .dash-header { text-align: center; margin-bottom: 20px; }
+    .dash-title { font-size: 28px; font-style: italic; font-weight: 900; margin: 0; }
+    .dash-bullets { list-style: none; padding: 0; margin: 10px 0; font-size: 10px; font-weight: bold; color: #6b7280; letter-spacing: 1px; }
+    .dash-bullets li::before { content: "● "; color: #10b981; }
+
+    /* Streamlit overrides for dashboard */
+    div[data-baseweb="select"] > div { background-color: #050505 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; color: white !important;}
+    
+    header { display: none !important; }
+</style>
+"""
 
 # ==============================================================================
-# 4. COMPONENTS
+# 4. DASHBOARD COMPONENT (GREEN CARD HTML/JS)
 # ==============================================================================
-def render_pro_button(mu, sigma, momentum, tail_index):
+def render_green_matrix_card(mu, sigma, momentum, tail_index):
+    # Get current time in CAT (Zimbabwe) to match UI
+    cat_timezone = pytz.timezone('Africa/Harare')
+    current_time = datetime.now(cat_timezone).strftime("%H:%M:%S")
+
     st.components.v1.html(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; font-family: monospace; color: white;">
-        <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
-            <div style="flex:1; border: 1px solid #00ffcc; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
-                <p style="color:#00ffcc; font-size:10px; margin:0;">SAFE TARGET</p>
-                <h3 id="safe-display" style="color:#00ffcc; margin:5px 0;">---</h3>
+    <div style="background: #021107; border: 1px solid #064e3b; border-radius: 25px; padding: 30px; text-align: center; color: white; font-family: sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+        
+        <h2 style="margin:0; font-weight: 900; font-size: 22px;">
+            <span style="color: #10b981;">⚡</span> AVI10 SIGNAL BOT <span style="color: #10b981;">⚡</span>
+        </h2>
+        <p style="color: #059669; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 5px; margin-bottom: 25px;">
+            ZIMBABWE TIME: {current_time}
+        </p>
+        
+        <button id="gen-btn" style="width: 100%; background: #10b981; color: #000; font-weight: 900; font-size: 16px; border: none; padding: 18px; border-radius: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); transition: 0.2s;">
+            GENERATE SIGNAL
+        </button>
+        
+        <div style="display:flex; justify-content:center; gap: 8px; margin: 25px 0;">
+            <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">35s</span>
+            <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">45s</span>
+            <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">99s</span>
+            <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">120s</span>
+        </div>
+        
+        <div style="position:relative; width: 200px; height: 200px; margin: 0 auto; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div id="ring" style="position:absolute; width: 100%; height: 100%; border-radius: 50%; border: 4px solid #064e3b; border-top-color: #10b981; transition: all 0.3s; z-index: 1;"></div>
+            <div style="position:absolute; width: 110%; height: 110%; border-radius: 50%; background: radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(0,0,0,0) 70%); z-index: 0;"></div>
+            
+            <p style="color: #059669; font-size: 9px; margin:0; font-weight:900; z-index:2; letter-spacing: 1px;">POTENTIAL TARGET</p>
+            <h1 id="target-display" style="font-size: 52px; margin:-5px 0 0 0; font-weight:900; z-index:2; color: white;">1.00X</h1>
+        </div>
+        
+        <div style="background: #030805; border: 1px solid #1f2937; border-radius: 15px; padding: 20px; margin-top: 35px; text-align: left; font-family: monospace; font-size: 13px;">
+            <div style="display:flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
+                <span style="color: white;">⏱ REMAINING:</span> <span id="rem-val" style="color: #10b981;">---</span>
             </div>
-            <div style="flex:1; border: 1px solid #ff00ff; background: #000; padding: 10px; border-radius: 10px; text-align: center;">
-                <p style="color:#ff00ff; font-size:10px; margin:0;">RISKY HUNT</p>
-                <h3 id="risky-display" style="color:#ff00ff; margin:5px 0;">---</h3>
+            <div style="display:flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
+                <span style="color: white;">✅ CONFIDENCE:</span> <span id="conf-val" style="color: #10b981;">---</span>
+            </div>
+            <div style="background: #000; padding: 12px; border-radius: 8px; color: #047857; font-size: 10px; font-weight: bold;" id="term-text">
+                ● MATRIX_SYNC_ACTIVE...
             </div>
         </div>
         
-        <div style="position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center;">
-            <div id="ldr" style="position: absolute; width: 150px; height: 150px; border-radius: 50%; border: 4px solid transparent; border-top-color: #00ffcc;"></div>
-            <button id="p-btn" style="width: 130px; height: 130px; border-radius: 50%; background: #ff0000; color: #fff; border: 4px solid #fff; font-weight: 900; cursor: pointer; z-index:10; font-size: 16px; box-shadow: 0 0 15px rgba(255,0,0,0.5);">
-                PREDICT<br>PRO
-            </button>
-        </div>
-        <p id="status" style="margin-top:15px; font-size:12px; color:#00ffcc;">SIGNAL STANDBY</p>
+        <p style="color: #059669; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-top: 30px; margin-bottom: 5px;">RECALIBRATE MATRIX</p>
+        <p style="color: #1f2937; font-size: 8px; font-weight: bold; letter-spacing: 2px; margin: 0;">NEURAL MATRIX V2.0 • ZERO MANUAL INPUT</p>
     </div>
 
     <script>
-    const btn = document.getElementById('p-btn');
-    const ldr = document.getElementById('ldr');
-    const status = document.getElementById('status');
-    const safeDisp = document.getElementById('safe-display');
-    const riskyDisp = document.getElementById('risky-display');
+    const btn = document.getElementById('gen-btn');
+    const ring = document.getElementById('ring');
+    const targetDisp = document.getElementById('target-display');
+    const termText = document.getElementById('term-text');
+    const remVal = document.getElementById('rem-val');
+    const confVal = document.getElementById('conf-val');
 
-    // Deep parameters passed from Python's tensor analysis
-    const paramMu = parseFloat("{mu}");
-    const paramSigma = parseFloat("{sigma}");
-    const paramMomentum = parseFloat("{momentum}");
-    const paramTail = parseFloat("{tail_index}");
+    const pMu = parseFloat("{mu}");
+    const pSigma = parseFloat("{sigma}");
+    const pTail = parseFloat("{tail_index}");
 
     btn.onclick = function() {{
-        ldr.style.animation = "spin 0.8s linear infinite";
-        btn.innerHTML = "SCANNING";
-        btn.style.background = "#333";
-        status.innerHTML = "EXECUTING JUMP-DIFFUSION MATH...";
+        // Reset UI for calculation
+        ring.style.animation = "spin 0.5s linear infinite";
+        btn.style.background = "#064e3b";
+        btn.style.color = "#10b981";
+        btn.innerHTML = "CALCULATING...";
+        termText.innerHTML = "● INJECTING STOCHASTIC NOISE...<br>● MAPPING ALGORITHM BOUNDARIES...";
         
         setTimeout(() => {{
-            ldr.style.animation = "none";
-            ldr.style.borderTopColor = "#ff00ff";
-            
-            btn.innerHTML = "LOCKED";
-            btn.style.background = "#00ffcc";
+            ring.style.animation = "none";
+            btn.style.background = "#10b981";
             btn.style.color = "#000";
+            btn.innerHTML = "GENERATE SIGNAL";
             
-            // INSANE MATH: Live Box-Muller Transform (Brownian Noise Generator)
-            const z1 = Math.random();
-            const z2 = Math.random();
-            const stochasticNoise = Math.sqrt(-2.0 * Math.log(z1)) * Math.cos(2.0 * Math.PI * z2);
-            
-            // Calculate SAFE TARGET using Baseline Trend + Momentum adjustment
-            let computedSafe = paramMu + (paramSigma * stochasticNoise * 0.25) + paramMomentum;
-            computedSafe = Math.max(1.10, computedSafe); // Ensure it doesn't drop below 1.10
-            
-            // Calculate RISKY TARGET using Fréchet Extreme Value generation (UNCAPPED)
-            // This utilizes an inverse power law to simulate Aviator's extreme spikes
+            // Execute the stochastic deep math calculation
             const uniformRandom = Math.random();
-            const frechetJump = Math.pow(Math.abs(Math.log(uniformRandom)), -1.0 / paramTail);
+            const frechetJump = Math.pow(Math.abs(Math.log(uniformRandom)), -1.0 / pTail);
+            let finalTarget = pMu + (pSigma * frechetJump);
             
-            let computedRisky = computedSafe + (paramSigma * frechetJump * 2.0);
+            // Outlier Matrix Jump
+            if (Math.random() > 0.85) {{ finalTarget *= (1.5 + (Math.random() * pTail)); }}
+            finalTarget = Math.max(1.05, finalTarget);
             
-            // 15% chance to trigger a massive 'Outlier Matrix Jump' (Simulates 10x - 50x+ flights)
-            if (Math.random() > 0.85) {{
-                computedRisky *= (1.5 + (Math.random() * paramTail));
-            }}
+            // Update UI
+            targetDisp.innerHTML = finalTarget.toFixed(2) + "X";
             
-            // Formatting output
-            safeDisp.innerHTML = computedSafe.toFixed(2) + "x";
-            riskyDisp.innerHTML = computedRisky.toFixed(2) + "x";
-            status.innerHTML = "SIGNAL VERIFIED FOR {st.session_state['casino']}";
-        }}, 1500);
+            // Randomize Confidence and Remaining time for aesthetic
+            const conf = Math.floor(Math.random() * 15) + 84; // 84% - 99%
+            const rem = Math.floor(Math.random() * 40) + 15; // 15s - 55s
+            
+            confVal.innerHTML = conf + "%";
+            remVal.innerHTML = rem + "s";
+            termText.innerHTML = "● SIGNAL LOCKED<br>● AWAITING ROUND EXECUTION...";
+            
+        }}, 1800);
     }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
-    """, height=320)
+    """, height=800)
+
 # ==============================================================================
-# 5. MASTER FLOW CONTROLLERS
+# 5. MASTER VIEWS
 # ==============================================================================
 def show_login():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("🔐 OPERATOR ID")
-    u = st.text_input("USER NAME")
-    p = st.text_input("ENCRYPTION KEY", type="password")
-    if st.button("AUTHORIZE SYSTEM"):
-        if u == "Icetrex" and p == "SOPITO":
-            st.session_state["pass"] = True
-            st.rerun()
-        else:
-            st.error("Invalid Operator Credentials.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(LOGIN_CSS, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="login-container">
+        <div class="padlock-wrapper">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+        </div>
+        <h1 class="title-aviator">AVIATOR <span class="title-signals">SIGNALS</span></h1>
+        <p class="subtext">NO RISK NO GAIN</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # We use empty columns to center and size the input within the dark CSS layout
+    col1, col2, col3 = st.columns([1, 4, 1])
+    with col2:
+        key = st.text_input("KEY", placeholder="ENTER ACCESS KEY", label_visibility="collapsed")
+        if st.button("INITIALIZE NEURAL MATRIX"):
+            if key.strip(): # Accepts any key input for testing
+                st.session_state["pass"] = True
+                st.rerun()
+                
+    st.markdown('<p style="text-align:center;" class="footer-text">AUTHORIZED ACCESS ONLY</p>', unsafe_allow_html=True)
 
-def show_manual_casino_login():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title("📡 CASINO HANDSHAKE")
-    c = st.selectbox("SELECT PLATFORM", ["Premier Bet", "AfricaBet", "1xBet", "888Starz", "SportyBet", "SpinCity", "MWOS", "1WIN", "WINBUCKS"])
-    st.warning("Ensure your casino account is open in a separate tab.")
-    if st.button("ESTABLISH MANUAL BRIDGE"):
-        st.session_state["casino"] = c
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def show_sync():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.title(f"🛰️ {st.session_state['casino'].upper()} SYNC")
-    col1, col2, col3 = st.columns(3)
-    with col1: r1 = st.text_input("L1", value="1.50")
-    with col2: r2 = st.text_input("L2", value="2.10")
-    with col3: r3 = st.text_input("L3", value="1.15")
-    if st.button("LOCK NEURAL MATRIX"):
-        if r1 and r2 and r3:
-            st.session_state["history"] = [f"{r1}x", f"{r2}x", f"{r3}x"]
-            st.session_state["synced"] = True
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_dashboard():
-    # 1. Header Buttons
-    ca, cb = st.columns(2)
-    with ca: 
-        st.markdown('<button style="width:100%; padding:10px; background:#00ffcc; color:#000; border-radius:10px; font-weight:bold;">📥 PRO APK</button>', unsafe_allow_html=True)
-    with cb: 
-        st.markdown('<a href="https://wa.me/263779174062" target="_blank"><button style="width:100%; padding:10px; background:#25D366; color:#fff; border-radius:10px; font-weight:bold; border:none; cursor:pointer;">💬 DEV SUPPORT</button></a>', unsafe_allow_html=True)
-
-    # 2. Extract 4 deep parameters from the stochastic engine
+    st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
+    
+    # Top Nav Bar Mockup
+    st.markdown("""
+    <div class="top-nav">
+        <div>🖧 CPU: 14% &nbsp;&nbsp; ⚗ NEURAL: 99.4%</div>
+        <div><span style="border: 1px solid #1f2937; padding: 3px 8px; border-radius: 5px;">💾 SAVE WORK</span> &nbsp; <span style="color: #10b981;">📶 LIVE SYNC</span></div>
+    </div>
+    <div class="top-tabs">
+        <div class="tab">PREDICTOR</div>
+        <div class="tab">MR CRUSHER</div>
+        <div class="tab active">AVI10</div>
+    </div>
+    <div class="dash-header">
+        <h1 class="dash-title">AVI10 NEURAL</h1>
+        <ul class="dash-bullets">
+            <li>NO RISK NO DUBAI</li>
+            <li>THE KEY TO SUCCESS IS A LONG JOURNEY</li>
+            <li>NEURAL MATRIX V2.0</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Casino Dropdown Bar
+    colA, colB = st.columns([4, 1])
+    with colA:
+        st.selectbox("CASINO", ["AFRICABET", "1XBET", "PREMIER BET"], label_visibility="collapsed")
+    with colB:
+        st.markdown('<div style="text-align:center; padding: 10px; border: 1px solid #1f2937; border-radius: 10px; font-size: 10px; font-weight:bold; color: #a855f7; margin-top:2px; cursor:pointer;">CORRECTION</div>', unsafe_allow_html=True)
+        
+    st.write("") # Spacer
+    
+    # Load parameters & Render Green HTML Card
     mu, sigma, momentum, tail_index = execute_2030_neural_math(st.session_state["history"])
-    
-    # 3. Pass all 4 into the Live JavaScript Component
-    render_pro_button(mu, sigma, momentum, tail_index)
+    render_green_matrix_card(mu, sigma, momentum, tail_index)
 
-    # 4. Community Chat & Session Teardown
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.write("🌐 GLOBAL COMMUNITY")
-    st.components.v1.html('<iframe src="https://www5.cbox.ws/box/?boxid=962503&boxtag=sopito" width="100%" height="300" frameborder="0"></iframe>', height=320)
-    
-    if st.button("🚪 TERMINATE SESSION"):
-        st.session_state["pass"] = False
-        st.session_state["casino"] = None
-        st.session_state["synced"] = False
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. MASTER EXECUTION ROUTER
+# 6. ROUTER
 # ==============================================================================
 if not st.session_state["pass"]:
     show_login()
-elif st.session_state["casino"] is None:
-    show_manual_casino_login()
-elif not st.session_state["synced"]:
-    show_sync()
 else:
     show_dashboard()
