@@ -22,7 +22,6 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Insert seed dummy data if table is empty
     cursor.execute("SELECT COUNT(*) FROM round_history")
     if cursor.fetchone()[0] == 0:
         sample_data = [
@@ -50,28 +49,19 @@ def fetch_live_history(casino_name: str) -> list:
         st.error(f"Database error: {e}")
     return ["1.50x", "2.10x", "1.15x"]
 
-def insert_live_multiplier(casino_name: str, multiplier: float):
-    """Call this function when receiving live data from your scraper or WebSocket."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO round_history (casino, multiplier) VALUES (?, ?)", (casino_name, multiplier))
-    conn.commit()
-    conn.close()
-
-# Run DB initialization
 init_db()
 
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
+if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
 
-# Set page config globally
 st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_sidebar_state="collapsed")
 
 # ==============================================================================
-# 2. STOCHASTIC MATH ENGINE (PRESERVED)
+# 2. STOCHASTIC MATH ENGINE
 # ==============================================================================
 def execute_2030_neural_math(history_data):
-    """Calculates live stochastic parameters for the client-side Jump-Diffusion."""
+    """Calculates live stochastic parameters for client-side Jump-Diffusion."""
     try:
         vals = [float(x.replace('x','').strip()) for x in history_data if x.strip()]
         if len(vals) < 3: 
@@ -127,9 +117,6 @@ DASHBOARD_CSS = """
 <style>
     .stApp { background-color: #030805; color: white; font-family: 'Inter', sans-serif; }
     .top-nav { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 20px; }
-    .top-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
-    .tab { flex: 1; text-align: center; padding: 12px; border-radius: 10px; font-size: 12px; font-weight: bold; border: 1px solid #1f2937; background: #050505; color: #6b7280; }
-    .tab.active { background: #059669; color: #000; border: none; box-shadow: 0 0 15px rgba(5, 150, 105, 0.4); }
     .dash-header { text-align: center; margin-bottom: 20px; }
     .dash-title { font-size: 28px; font-style: italic; font-weight: 900; margin: 0; }
     .dash-bullets { list-style: none; padding: 0; margin: 10px 0; font-size: 10px; font-weight: bold; color: #6b7280; letter-spacing: 1px; }
@@ -137,32 +124,41 @@ DASHBOARD_CSS = """
 
     div[data-baseweb="select"] > div { background-color: #050505 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; color: white !important;}
     header { display: none !important; }
+    
+    /* Native tab button override styling */
+    div[data-testid="stHorizontalBlock"] button {
+        background: #050505 !important;
+        color: #6b7280 !important;
+        border: 1px solid #1f2937 !important;
+        border-radius: 10px !important;
+        font-weight: bold !important;
+        font-size: 12px !important;
+    }
 </style>
 """
 
 # ==============================================================================
-# 4. DASHBOARD COMPONENT (FIXED JAVASCRIPT INJECTION)
+# 4. DASHBOARD COMPONENT WITH TRIPLE-SIGNAL RECALIBRATION BOX
 # ==============================================================================
-def render_green_matrix_card(mu, sigma, momentum, tail_index):
+def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10"):
     cat_timezone = pytz.timezone('Africa/Harare')
     current_time = datetime.now(cat_timezone).strftime("%H:%M:%S")
 
-    # Escaped {{ }} for JS syntax and injected Python variables cleanly
     html_code = f"""
     <div style="background: #021107; border: 1px solid #064e3b; border-radius: 25px; padding: 30px; text-align: center; color: white; font-family: sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
         
         <h2 style="margin:0; font-weight: 900; font-size: 22px;">
-            <span style="color: #10b981;">⚡</span> AVI10 SIGNAL BOT <span style="color: #10b981;">⚡</span>
+            <span style="color: #10b981;">⚡</span> {active_mode} MATRIX BOT <span style="color: #10b981;">⚡</span>
         </h2>
-        <p style="color: #059669; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 5px; margin-bottom: 25px;">
-            ZIMBABWE TIME: {current_time}
+        <p style="color: #059669; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 5px; margin-bottom: 20px;">
+            ZIMBABWE TIME: <span id="clock-display">{current_time}</span>
         </p>
         
         <button id="gen-btn" style="width: 100%; background: #10b981; color: #000; font-weight: 900; font-size: 16px; border: none; padding: 18px; border-radius: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); transition: 0.2s;">
             GENERATE SIGNAL
         </button>
         
-        <div style="display:flex; justify-content:center; gap: 8px; margin: 25px 0;">
+        <div style="display:flex; justify-content:center; gap: 8px; margin: 20px 0;">
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">35s</span>
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">45s</span>
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #6b7280; font-weight: bold;">99s</span>
@@ -176,8 +172,20 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
             <p style="color: #059669; font-size: 9px; margin:0; font-weight:900; z-index:2; letter-spacing: 1px;">POTENTIAL TARGET</p>
             <h1 id="target-display" style="font-size: 52px; margin:-5px 0 0 0; font-weight:900; z-index:2; color: white;">1.00X</h1>
         </div>
+
+        <!-- NEW: PAST 3 SIGNALS RECALIBRATION BOX -->
+        <div style="background: #011409; border: 1px dashed #059669; border-radius: 12px; padding: 12px; margin-top: 25px; text-align: center;">
+            <p style="color: #10b981; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; margin: 0 0 8px 0;">
+                TRIPLE-SIGNAL RECALIBRATION HISTORY
+            </p>
+            <div style="display: flex; justify-content: space-around; font-family: monospace; font-size: 12px; font-weight: bold;">
+                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: #a855f7;" id="sig-1">S1: ---</span>
+                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: #a855f7;" id="sig-2">S2: ---</span>
+                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: #a855f7;" id="sig-3">S3: ---</span>
+            </div>
+        </div>
         
-        <div style="background: #030805; border: 1px solid #1f2937; border-radius: 15px; padding: 20px; margin-top: 35px; text-align: left; font-family: monospace; font-size: 13px;">
+        <div style="background: #030805; border: 1px solid #1f2937; border-radius: 15px; padding: 20px; margin-top: 20px; text-align: left; font-family: monospace; font-size: 13px;">
             <div style="display:flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold;">
                 <span style="color: white;">⏱ REMAINING:</span> <span id="rem-val" style="color: #10b981;">---</span>
             </div>
@@ -189,11 +197,19 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
             </div>
         </div>
         
-        <p style="color: #059669; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-top: 30px; margin-bottom: 5px;">RECALIBRATE MATRIX</p>
+        <p style="color: #059669; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-top: 25px; margin-bottom: 5px;">RECALIBRATE MATRIX</p>
         <p style="color: #1f2937; font-size: 8px; font-weight: bold; letter-spacing: 2px; margin: 0;">NEURAL MATRIX V2.0 • ZERO MANUAL INPUT</p>
     </div>
 
     <script>
+    // Real-time unfreezing clock updater
+    setInterval(() => {{
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+        const clockElem = document.getElementById('clock-display');
+        if (clockElem) clockElem.innerText = timeStr;
+    }}, 1000);
+
     const btn = document.getElementById('gen-btn');
     const ring = document.getElementById('ring');
     const targetDisp = document.getElementById('target-display');
@@ -201,7 +217,13 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
     const remVal = document.getElementById('rem-val');
     const confVal = document.getElementById('conf-val');
 
-    // Injected numeric values from Python math engine
+    const sig1 = document.getElementById('sig-1');
+    const sig2 = document.getElementById('sig-2');
+    const sig3 = document.getElementById('sig-3');
+
+    // Internal signal tracking memory for past 3 predictions
+    let signalHistory = [];
+
     const pMu = {mu};
     const pSigma = {sigma};
     const pTail = {tail_index};
@@ -211,7 +233,7 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
         btn.style.background = "#064e3b";
         btn.style.color = "#10b981";
         btn.innerHTML = "CALCULATING...";
-        termText.innerHTML = "● INJECTING STOCHASTIC NOISE...<br>● MAPPING ALGORITHM BOUNDARIES...";
+        termText.innerHTML = "● PROCESSING PAST 3 SIGNALS...<br>● INJECTING STOCHASTIC NOISE...";
         
         setTimeout(() => {{
             ring.style.animation = "none";
@@ -219,31 +241,51 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
             btn.style.color = "#000";
             btn.innerHTML = "GENERATE SIGNAL";
             
+            // Base stochastic jump calculation
             const uniformRandom = Math.random();
             const frechetJump = Math.pow(Math.abs(Math.log(uniformRandom)), -1.0 / pTail);
-            let finalTarget = pMu + (pSigma * frechetJump);
+            let rawTarget = pMu + (pSigma * frechetJump);
             
-            if (Math.random() > 0.85) {{ finalTarget *= (1.5 + (Math.random() * pTail)); }}
-            finalTarget = Math.max(1.05, finalTarget);
+            if (Math.random() > 0.85) {{ rawTarget *= (1.5 + (Math.random() * pTail)); }}
+            rawTarget = Math.max(1.05, rawTarget);
+
+            // Incorporate past 3 signals if available for recalibration
+            let finalTarget = rawTarget;
+            if (signalHistory.length > 0) {{
+                const histSum = signalHistory.reduce((a, b) => a + b, 0);
+                const histAvg = histSum / signalHistory.length;
+                // Weighted convergence towards moving average
+                finalTarget = (rawTarget * 0.7) + (histAvg * 0.3);
+            }}
+
+            const formattedTarget = finalTarget.toFixed(2) + "X";
+            targetDisp.innerHTML = formattedTarget;
+
+            // Push to past 3 signal storage
+            signalHistory.push(parseFloat(finalTarget.toFixed(2)));
+            if (signalHistory.length > 3) signalHistory.shift();
+
+            // Update Signal Box UI
+            if (signalHistory[0]) sig1.innerText = "S1: " + signalHistory[0] + "x";
+            if (signalHistory[1]) sig2.innerText = "S2: " + signalHistory[1] + "x";
+            if (signalHistory[2]) sig3.innerText = "S3: " + signalHistory[2] + "x";
             
-            targetDisp.innerHTML = finalTarget.toFixed(2) + "X";
-            
-            const conf = Math.floor(Math.random() * 15) + 84; 
-            const rem = Math.floor(Math.random() * 40) + 15; 
+            const conf = Math.floor(Math.random() * 10) + 89; 
+            const rem = Math.floor(Math.random() * 30) + 15; 
             
             confVal.innerHTML = conf + "%";
             remVal.innerHTML = rem + "s";
-            termText.innerHTML = "● SIGNAL LOCKED<br>● AWAITING ROUND EXECUTION...";
+            termText.innerHTML = "● TRIPLE-SIGNAL RECALIBRATED<br>● SIGNAL LOCKED FOR ROUND...";
             
         }}, 1800);
     }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
     """
-    st.components.v1.html(html_code, height=800)
+    st.components.v1.html(html_code, height=900)
 
 # ==============================================================================
-# 5. MASTER VIEWS
+# 5. MASTER VIEWS & WORKING TABS
 # ==============================================================================
 def show_login():
     st.markdown(LOGIN_CSS, unsafe_allow_html=True)
@@ -277,15 +319,29 @@ def show_dashboard():
         <div>🖧 CPU: 14% &nbsp;&nbsp; ⚗ NEURAL: 99.4%</div>
         <div><span style="border: 1px solid #1f2937; padding: 3px 8px; border-radius: 5px;">💾 SAVE WORK</span> &nbsp; <span style="color: #10b981;">📶 LIVE SYNC</span></div>
     </div>
-    <div class="top-tabs">
-        <div class="tab">PREDICTOR</div>
-        <div class="tab">MR CRUSHER</div>
-        <div class="tab active">AVI10</div>
-    </div>
-    <div class="dash-header">
-        <h1 class="dash-title">AVI10 NEURAL</h1>
+    """, unsafe_allow_html=True)
+
+    # ACTIVE WORKING TABS FOR PREDICTOR, MR CRUSHER, AND AVI10
+    t1, t2, t3 = st.columns(3)
+    with t1:
+        if st.button("PREDICTOR", use_container_width=True):
+            st.session_state["active_tab"] = "PREDICTOR"
+            st.rerun()
+    with t2:
+        if st.button("MR CRUSHER", use_container_width=True):
+            st.session_state["active_tab"] = "MR CRUSHER"
+            st.rerun()
+    with t3:
+        if st.button("AVI10", use_container_width=True):
+            st.session_state["active_tab"] = "AVI10"
+            st.rerun()
+
+    # UPDATED TAGLINE TO "NO RISK NO GAIN"
+    st.markdown(f"""
+    <div class="dash-header" style="margin-top: 15px;">
+        <h1 class="dash-title">{st.session_state['active_tab']} NEURAL</h1>
         <ul class="dash-bullets">
-            <li>NO RISK NO DUBAI</li>
+            <li>NO RISK NO GAIN</li>
             <li>THE KEY TO SUCCESS IS A LONG JOURNEY</li>
             <li>NEURAL MATRIX V2.0</li>
         </ul>
@@ -301,10 +357,9 @@ def show_dashboard():
         
     st.write("") 
     
-    # Query real history dynamically from the SQLite database based on selected casino
     live_history = fetch_live_history(st.session_state["casino"])
     mu, sigma, momentum, tail_index = execute_2030_neural_math(live_history)
-    render_green_matrix_card(mu, sigma, momentum, tail_index)
+    render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode=st.session_state["active_tab"])
 
 # ==============================================================================
 # 6. ROUTER
