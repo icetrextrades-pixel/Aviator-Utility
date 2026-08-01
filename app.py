@@ -3,13 +3,66 @@ import numpy as np
 import time
 from datetime import datetime
 import pytz
+import sqlite3
 
 # ==============================================================================
-# 1. ATOMIC INITIALIZATION & STATE
+# 1. DATABASE & ATOMIC INITIALIZATION
 # ==============================================================================
+DB_NAME = "aviator_data.db"
+
+def init_db():
+    """Initializes a local SQLite database for storing live casino round history."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS round_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            casino TEXT NOT NULL,
+            multiplier REAL NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # Insert seed dummy data if table is empty
+    cursor.execute("SELECT COUNT(*) FROM round_history")
+    if cursor.fetchone()[0] == 0:
+        sample_data = [
+            ("AFRICABET", 1.50), ("AFRICABET", 2.10), ("AFRICABET", 1.15),
+            ("1XBET", 3.20), ("1XBET", 1.05), ("PREMIER BET", 1.80)
+        ]
+        cursor.executemany("INSERT INTO round_history (casino, multiplier) VALUES (?, ?)", sample_data)
+        conn.commit()
+    conn.close()
+
+def fetch_live_history(casino_name: str) -> list:
+    """Fetches the latest 10 multipliers for a specific casino from the database."""
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT multiplier FROM round_history WHERE casino = ? ORDER BY id DESC LIMIT 10", 
+            (casino_name,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        if rows:
+            return [f"{row[0]:.2f}x" for row in rows]
+    except Exception as e:
+        st.error(f"Database error: {e}")
+    return ["1.50x", "2.10x", "1.15x"]
+
+def insert_live_multiplier(casino_name: str, multiplier: float):
+    """Call this function when receiving live data from your scraper or WebSocket."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO round_history (casino, multiplier) VALUES (?, ?)", (casino_name, multiplier))
+    conn.commit()
+    conn.close()
+
+# Run DB initialization
+init_db()
+
 if "pass" not in st.session_state: st.session_state["pass"] = False
-if "casino" not in st.session_state: st.session_state["casino"] = "AFRIBET"
-if "history" not in st.session_state: st.session_state["history"] = ["1.50x", "2.10x", "1.15x"]
+if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 
 # Set page config globally
 st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_sidebar_state="collapsed")
@@ -25,48 +78,40 @@ def execute_2030_neural_math(history_data):
             return 1.45, 0.20, 0.05, 2.0
             
         arr = np.array(vals)
-        mu = np.mean(arr)
-        sigma = np.std(arr) + 0.001
+        mu = float(np.mean(arr))
+        sigma = float(np.std(arr) + 0.001)
         log_returns = np.diff(np.log(arr))
-        momentum = np.mean(log_returns) if len(log_returns) > 0 else 0
-        tail_index = np.max(arr) / mu if mu > 0 else 2.0
+        momentum = float(np.mean(log_returns)) if len(log_returns) > 0 else 0.0
+        tail_index = float(np.max(arr) / mu) if mu > 0 else 2.0
         
         return mu, sigma, momentum, min(tail_index, 15.0)
     except Exception:
         return 1.45, 0.20, 0.05, 2.0
 
 # ==============================================================================
-# 3. DYNAMIC CSS INJECTION (IMAGE MATCHING)
+# 3. DYNAMIC CSS INJECTION
 # ==============================================================================
 LOGIN_CSS = """
 <style>
     .stApp { background-color: #050508; color: white; }
-    
-    /* Login Card Replication */
     .login-container {
         background: #0a0a10; border: 1px solid #2a1644; border-radius: 20px;
         padding: 50px 30px; text-align: center; max-width: 450px; margin: 40px auto;
         box-shadow: 0 0 40px rgba(80, 20, 150, 0.1);
     }
-    
-    /* Padlock Icon */
     .padlock-wrapper {
         width: 80px; height: 80px; border-radius: 50%; border: 2px solid #5b21b6;
         margin: 0 auto 30px auto; display: flex; align-items: center; justify-content: center;
         box-shadow: 0 0 20px rgba(91, 33, 182, 0.3);
     }
-    
-    /* Text Styling */
     .title-aviator { font-size: 32px; font-weight: 900; font-style: italic; color: white; margin: 0; }
     .title-signals { font-size: 32px; font-weight: 900; font-style: italic; color: #a855f7; margin: 0; }
     .subtext { font-size: 10px; letter-spacing: 4px; color: #6b21a8; margin-top: 10px; margin-bottom: 40px; font-weight: bold; }
     .footer-text { font-size: 9px; letter-spacing: 3px; color: #3f3f46; margin-top: 40px; }
 
-    /* Streamlit Input Override */
     div[data-baseweb="input"] { background-color: #000 !important; border: 1px solid #2a1644 !important; border-radius: 12px !important; }
     div[data-baseweb="input"] input { color: #a855f7 !important; text-align: center !important; font-weight: bold; letter-spacing: 2px; }
     
-    /* Streamlit Button Override */
     div[data-testid="stButton"] > button {
         background: linear-gradient(90deg, #9333ea, #db2777) !important;
         color: white !important; border: none !important; border-radius: 12px !important;
@@ -74,8 +119,6 @@ LOGIN_CSS = """
         width: 100% !important; margin-top: 15px !important; transition: all 0.3s ease;
     }
     div[data-testid="stButton"] > button:hover { box-shadow: 0 0 20px rgba(219, 39, 119, 0.5) !important; }
-    
-    /* Hide top header */
     header { display: none !important; }
 </style>
 """
@@ -83,35 +126,29 @@ LOGIN_CSS = """
 DASHBOARD_CSS = """
 <style>
     .stApp { background-color: #030805; color: white; font-family: 'Inter', sans-serif; }
-    
-    /* Top Nav Fakes */
     .top-nav { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 20px; }
     .top-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
     .tab { flex: 1; text-align: center; padding: 12px; border-radius: 10px; font-size: 12px; font-weight: bold; border: 1px solid #1f2937; background: #050505; color: #6b7280; }
     .tab.active { background: #059669; color: #000; border: none; box-shadow: 0 0 15px rgba(5, 150, 105, 0.4); }
-
-    /* Title Section */
     .dash-header { text-align: center; margin-bottom: 20px; }
     .dash-title { font-size: 28px; font-style: italic; font-weight: 900; margin: 0; }
     .dash-bullets { list-style: none; padding: 0; margin: 10px 0; font-size: 10px; font-weight: bold; color: #6b7280; letter-spacing: 1px; }
     .dash-bullets li::before { content: "● "; color: #10b981; }
 
-    /* Streamlit overrides for dashboard */
     div[data-baseweb="select"] > div { background-color: #050505 !important; border: 1px solid #1f2937 !important; border-radius: 10px !important; color: white !important;}
-    
     header { display: none !important; }
 </style>
 """
 
 # ==============================================================================
-# 4. DASHBOARD COMPONENT (GREEN CARD HTML/JS)
+# 4. DASHBOARD COMPONENT (FIXED JAVASCRIPT INJECTION)
 # ==============================================================================
 def render_green_matrix_card(mu, sigma, momentum, tail_index):
-    # Get current time in CAT (Zimbabwe) to match UI
     cat_timezone = pytz.timezone('Africa/Harare')
     current_time = datetime.now(cat_timezone).strftime("%H:%M:%S")
 
-    st.components.v1.html(f"""
+    # Escaped {{ }} for JS syntax and injected Python variables cleanly
+    html_code = f"""
     <div style="background: #021107; border: 1px solid #064e3b; border-radius: 25px; padding: 30px; text-align: center; color: white; font-family: sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
         
         <h2 style="margin:0; font-weight: 900; font-size: 22px;">
@@ -164,12 +201,12 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
     const remVal = document.getElementById('rem-val');
     const confVal = document.getElementById('conf-val');
 
-    const pMu = parseFloat("{mu}");
-    const pSigma = parseFloat("{sigma}");
-    const pTail = parseFloat("{tail_index}");
+    // Injected numeric values from Python math engine
+    const pMu = {mu};
+    const pSigma = {sigma};
+    const pTail = {tail_index};
 
     btn.onclick = function() {{
-        // Reset UI for calculation
         ring.style.animation = "spin 0.5s linear infinite";
         btn.style.background = "#064e3b";
         btn.style.color = "#10b981";
@@ -182,21 +219,17 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
             btn.style.color = "#000";
             btn.innerHTML = "GENERATE SIGNAL";
             
-            // Execute the stochastic deep math calculation
             const uniformRandom = Math.random();
             const frechetJump = Math.pow(Math.abs(Math.log(uniformRandom)), -1.0 / pTail);
             let finalTarget = pMu + (pSigma * frechetJump);
             
-            // Outlier Matrix Jump
             if (Math.random() > 0.85) {{ finalTarget *= (1.5 + (Math.random() * pTail)); }}
             finalTarget = Math.max(1.05, finalTarget);
             
-            // Update UI
             targetDisp.innerHTML = finalTarget.toFixed(2) + "X";
             
-            // Randomize Confidence and Remaining time for aesthetic
-            const conf = Math.floor(Math.random() * 15) + 84; // 84% - 99%
-            const rem = Math.floor(Math.random() * 40) + 15; // 15s - 55s
+            const conf = Math.floor(Math.random() * 15) + 84; 
+            const rem = Math.floor(Math.random() * 40) + 15; 
             
             confVal.innerHTML = conf + "%";
             remVal.innerHTML = rem + "s";
@@ -206,14 +239,14 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index):
     }};
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
-    """, height=800)
+    """
+    st.components.v1.html(html_code, height=800)
 
 # ==============================================================================
 # 5. MASTER VIEWS
 # ==============================================================================
 def show_login():
     st.markdown(LOGIN_CSS, unsafe_allow_html=True)
-    
     st.markdown("""
     <div class="login-container">
         <div class="padlock-wrapper">
@@ -227,22 +260,18 @@ def show_login():
     </div>
     """, unsafe_allow_html=True)
     
-    # We use empty columns to center and size the input within the dark CSS layout
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
         key = st.text_input("KEY", placeholder="ENTER ACCESS KEY", label_visibility="collapsed")
         if st.button("INITIALIZE NEURAL MATRIX"):
-            if key.strip(): # Accepts any key input for testing
+            if key.strip():
                 st.session_state["pass"] = True
                 st.rerun()
                 
     st.markdown('<p style="text-align:center;" class="footer-text">AUTHORIZED ACCESS ONLY</p>', unsafe_allow_html=True)
 
-
 def show_dashboard():
     st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
-    
-    # Top Nav Bar Mockup
     st.markdown("""
     <div class="top-nav">
         <div>🖧 CPU: 14% &nbsp;&nbsp; ⚗ NEURAL: 99.4%</div>
@@ -263,19 +292,19 @@ def show_dashboard():
     </div>
     """, unsafe_allow_html=True)
     
-    # Casino Dropdown Bar
     colA, colB = st.columns([4, 1])
     with colA:
-        st.selectbox("CASINO", ["AFRICABET", "1XBET", "PREMIER BET"], label_visibility="collapsed")
+        selected_casino = st.selectbox("CASINO", ["AFRICABET", "1XBET", "PREMIER BET"], label_visibility="collapsed")
+        st.session_state["casino"] = selected_casino
     with colB:
         st.markdown('<div style="text-align:center; padding: 10px; border: 1px solid #1f2937; border-radius: 10px; font-size: 10px; font-weight:bold; color: #a855f7; margin-top:2px; cursor:pointer;">CORRECTION</div>', unsafe_allow_html=True)
         
-    st.write("") # Spacer
+    st.write("") 
     
-    # Load parameters & Render Green HTML Card
-    mu, sigma, momentum, tail_index = execute_2030_neural_math(st.session_state["history"])
+    # Query real history dynamically from the SQLite database based on selected casino
+    live_history = fetch_live_history(st.session_state["casino"])
+    mu, sigma, momentum, tail_index = execute_2030_neural_math(live_history)
     render_green_matrix_card(mu, sigma, momentum, tail_index)
-
 
 # ==============================================================================
 # 6. ROUTER
