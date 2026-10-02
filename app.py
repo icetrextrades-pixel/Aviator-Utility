@@ -613,25 +613,6 @@ def show_login():
     with col2:
         mode = st.session_state["auth_mode"]
         if mode == "login":
-            identifier = st.text_input("EMAIL OR VERIFIdef show_login():
-    st.markdown(LOGIN_CSS, unsafe_allow_html=True)
-    st.markdown("""
-    <div class="login-container">
-        <div class="padlock-wrapper">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-        </div>
-        <h1 class="title-aviator">AVIATOR <span class="title-signals">SIGNALS</span></h1>
-        <p class="subtext">NO RISK NO GAIN</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 4, 1])
-    with col2:
-        mode = st.session_state["auth_mode"]
-        if mode == "login":
             email_input = st.text_input("EMAIL", placeholder="ENTER EMAIL", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
             if st.session_state["auth_notice"]:
@@ -756,8 +737,33 @@ def show_login():
                     f'<a class="support-whatsapp-link" href="https://wa.me/{whatsapp_number}" target="_blank" rel="noopener noreferrer">{WHATSAPP_ICON_HTML}<span>WhatsApp · {display_phone}</span></a>',
                     unsafe_allow_html=True,
                 )
- 
-:root {{ --accent: {accent}; --accent-soft: color-mix(in srgb, {accent} 20%, transparent); }}</style>", unsafe_allow_html=True)
+
+
+def logout_user():
+    """End the Supabase session and clear signed-in dashboard state."""
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+
+    st.session_state["pass"] = False
+    st.session_state["user"] = ""
+    st.session_state["user_email"] = ""
+    st.session_state["user_id"] = ""
+    st.session_state["current_signal"] = None
+    st.session_state["signal_generated_at"] = 0.0
+    st.session_state["refresh_after_round"] = False
+    st.session_state["auth_mode"] = "login"
+    st.session_state["auth_notice"] = "You have been logged out."
+    st.rerun()
+
+
+def show_dashboard():
+    active_tab = st.session_state["active_tab"]
+    strat = STRATEGIES[active_tab]
+    accent = strat["accent_color"]
+    st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
+    st.markdown(f"<style>:root {{ --accent: {accent}; --accent-soft: color-mix(in srgb, {accent} 20%, transparent); }}</style>", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="top-nav">
