@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import math
 import time
 from datetime import datetime
 import pytz
@@ -42,13 +43,13 @@ def init_db():
         conn.commit()
     conn.close()
 
-def fetch_live_history(casino_name: str) -> list:
+def fetch_live_history(casino_name: str, limit: int = 50) -> list:
     try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT multiplier FROM round_history WHERE casino = ? ORDER BY id DESC LIMIT 10", 
-            (casino_name,)
+            "SELECT multiplier FROM round_history WHERE casino = ? ORDER BY id DESC LIMIT ?",
+            (casino_name, limit)
         )
         rows = cursor.fetchall()
         conn.close()
@@ -56,7 +57,7 @@ def fetch_live_history(casino_name: str) -> list:
             return [f"{row[0]:.2f}x" for row in rows]
     except Exception as e:
         st.error(f"Database error: {e}")
-    return ["1.50x", "2.10x", "1.15x"]
+    return ["1.50x", "2.10x", "1.15x", "1.80x", "1.30x", "2.50x", "1.10x", "1.60x", "3.20x", "1.05x"]
 
 init_db()
 
@@ -70,22 +71,65 @@ st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_
 # ==============================================================================
 # 2. STOCHASTIC MATH ENGINE
 # ==============================================================================
+
+def hill_estimator(arr: np.ndarray, k: int = None) -> float:
+    """Estimate the tail index using the Hill estimator instead of max/mean ratio."""
+    sorted_desc = np.sort(arr)[::-1]
+    n = len(sorted_desc)
+    if n < 5:
+        return 2.0
+    if k is None:
+        k = max(5, n // 4)
+    k = min(k, n - 1)
+    top_k = sorted_desc[:k]
+    threshold = sorted_desc[k]
+    if threshold <= 0:
+        return 2.0
+    ratios = np.log(top_k / threshold)
+    valid = ratios[ratios > 0]
+    if len(valid) == 0:
+        return 2.0
+    return float(1.0 / np.mean(valid))
+
+def compute_confidence(arr: np.ndarray, mu: float, sigma: float, tail_index: float) -> float:
+    """Derive a confidence score from data quality — not randomness."""
+    n = len(arr)
+    if n == 0 or mu <= 0:
+        return 50.0
+    cv = sigma / mu
+    sample_score = min(n / 50.0, 1.0)
+    cv_score = max(0.0, 1.0 - min(cv, 1.0))
+    tail_score = max(0.0, 1.0 - min(tail_index / 10.0, 1.0))
+    confidence = (sample_score * 0.4 + cv_score * 0.35 + tail_score * 0.25) * 100.0
+    return float(max(50.0, min(98.0, confidence)))
+
+def estimate_boost_probability(arr: np.ndarray, threshold: float = 2.0) -> float:
+    """Estimate the probability of a high-multiplier round from actual data."""
+    if len(arr) == 0:
+        return 0.15
+    high_count = int(np.sum(arr >= threshold))
+    return float(high_count / len(arr))
+
 def execute_2030_neural_math(history_data):
     try:
         vals = [float(x.replace('x','').strip()) for x in history_data if x.strip()]
-        if len(vals) < 3: 
-            return 1.45, 0.20, 0.05, 2.0
-            
+        if len(vals) < 3:
+            return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
+
         arr = np.array(vals)
         mu = float(np.mean(arr))
-        sigma = float(np.std(arr) + 0.001)
+        raw_sigma = float(np.std(arr))
+        sigma = max(raw_sigma, 1e-6)
         log_returns = np.diff(np.log(arr))
         momentum = float(np.mean(log_returns)) if len(log_returns) > 0 else 0.0
-        tail_index = float(np.max(arr) / mu) if mu > 0 else 2.0
-        
-        return mu, sigma, momentum, min(tail_index, 15.0)
+        tail_index = hill_estimator(arr)
+        confidence = compute_confidence(arr, mu, sigma, tail_index)
+        boost_prob = estimate_boost_probability(arr)
+        recent_actual = [float(v) for v in vals[:3]]
+
+        return mu, sigma, momentum, min(tail_index, 15.0), confidence, boost_prob, recent_actual
     except Exception:
-        return 1.45, 0.20, 0.05, 2.0
+        return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
 
 # ==============================================================================
 # 3. DYNAMIC MESSI CSS INJECTION (EXTERIOR & INTERIOR)
@@ -93,7 +137,7 @@ def execute_2030_neural_math(history_data):
 LOGIN_CSS = f"""
 <style>
     .stApp {{
-        background: linear-gradient(rgba(5, 5, 8, 0.85), rgba(5, 5, 8, 0.95)), 
+        background: linear-gradient(rgba(5, 5, 8, 0.85), rgba(5, 5, 8, 0.95)),
                     url('https://images.hdqwalls.com/wallpapers/lionel-messi-4k-2020-qt.jpg');
         background-size: cover;
         background-position: center;
@@ -123,7 +167,7 @@ LOGIN_CSS = f"""
 
     div[data-baseweb="input"] {{ background-color: rgba(0,0,0,0.8) !important; border: 1px solid #3b0764 !important; border-radius: 12px !important; }}
     div[data-baseweb="input"] input {{ color: #a855f7 !important; text-align: center !important; font-weight: bold; letter-spacing: 2px; }}
-    
+
     div[data-testid="stButton"] > button {{
         background: linear-gradient(90deg, #9333ea, #db2777) !important;
         color: white !important; border: none !important; border-radius: 12px !important;
@@ -138,7 +182,7 @@ LOGIN_CSS = f"""
 DASHBOARD_CSS = f"""
 <style>
     .stApp {{
-        background: linear-gradient(rgba(3, 8, 5, 0.88), rgba(3, 8, 5, 0.95)), 
+        background: linear-gradient(rgba(3, 8, 5, 0.88), rgba(3, 8, 5, 0.95)),
                     url('https://images.hdqwalls.com/wallpapers/lionel-messi-trophy-4k-hy.jpg');
         background-size: cover;
         background-position: center;
@@ -154,7 +198,7 @@ DASHBOARD_CSS = f"""
 
     div[data-baseweb="select"] > div {{ background-color: rgba(5,5,5,0.9) !important; border: 1px solid #064e3b !important; border-radius: 10px !important; color: white !important;}}
     header {{ display: none !important; }}
-    
+
     div[data-testid="stHorizontalBlock"] button {{
         background: rgba(5, 5, 5, 0.85) !important;
         color: #9ca3af !important;
@@ -169,35 +213,35 @@ DASHBOARD_CSS = f"""
 # ==============================================================================
 # 4. DASHBOARD COMPONENT WITH APK & ADMIN BOXES
 # ==============================================================================
-def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10"):
+def render_green_matrix_card(mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual, active_mode="AVI10"):
     cat_timezone = pytz.timezone('Africa/Harare')
     current_time = datetime.now(cat_timezone).strftime("%H:%M:%S")
 
     html_code = f"""
     <div style="background: rgba(2, 17, 7, 0.92); border: 1px solid #064e3b; border-radius: 25px; padding: 25px; text-align: center; color: white; font-family: sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.9); backdrop-filter: blur(12px);">
-        
+
         <h2 style="margin:0; font-weight: 900; font-size: 22px;">
             <span style="color: #10b981;">⚡</span> {active_mode} MATRIX BOT <span style="color: #10b981;">⚡</span>
         </h2>
         <p style="color: #059669; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 5px; margin-bottom: 20px;">
             ZIMBABWE TIME: <span id="clock-display">{current_time}</span>
         </p>
-        
+
         <button id="gen-btn" style="width: 100%; background: #10b981; color: #000; font-weight: 900; font-size: 16px; border: none; padding: 18px; border-radius: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); transition: 0.2s;">
             GENERATE SIGNAL
         </button>
-        
+
         <div style="display:flex; justify-content:center; gap: 8px; margin: 20px 0;">
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #9ca3af; font-weight: bold;">35s</span>
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #9ca3af; font-weight: bold;">45s</span>
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #9ca3af; font-weight: bold;">99s</span>
             <span style="border: 1px solid #1f2937; padding: 5px 12px; border-radius: 6px; font-size: 10px; color: #9ca3af; font-weight: bold;">120s</span>
         </div>
-        
+
         <div style="position:relative; width: 190px; height: 190px; margin: 0 auto; display:flex; flex-direction:column; justify-content:center; align-items:center;">
             <div id="ring" style="position:absolute; width: 100%; height: 100%; border-radius: 50%; border: 4px solid #064e3b; border-top-color: #10b981; transition: all 0.3s; z-index: 1;"></div>
             <div style="position:absolute; width: 110%; height: 110%; border-radius: 50%; background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(0,0,0,0) 70%); z-index: 0;"></div>
-            
+
             <p style="color: #059669; font-size: 9px; margin:0; font-weight:900; z-index:2; letter-spacing: 1px;">POTENTIAL TARGET</p>
             <h1 id="target-display" style="font-size: 50px; margin:-5px 0 0 0; font-weight:900; z-index:2; color: white;">1.00X</h1>
         </div>
@@ -213,7 +257,7 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10
                 <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: #a855f7;" id="sig-3">S3: ---</span>
             </div>
         </div>
-        
+
         <div style="background: rgba(3, 8, 5, 0.9); border: 1px solid #1f2937; border-radius: 15px; padding: 18px; margin-top: 15px; text-align: left; font-family: monospace; font-size: 13px;">
             <div style="display:flex; justify-content: space-between; margin-bottom: 12px; font-weight: bold;">
                 <span style="color: white;">⏱ REMAINING:</span> <span id="rem-val" style="color: #10b981;">---</span>
@@ -225,7 +269,7 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10
                 ● MATRIX_SYNC_ACTIVE...
             </div>
         </div>
-        
+
         <p style="color: #059669; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;">RECALIBRATE MATRIX</p>
         <p style="color: #6b7280; font-size: 8px; font-weight: bold; letter-spacing: 2px; margin: 0;">NEURAL MATRIX V2.0 • ZERO MANUAL INPUT</p>
     </div>
@@ -253,7 +297,13 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10
 
     const pMu = {mu};
     const pSigma = {sigma};
+    const pMomentum = {momentum};
     const pTail = {tail_index};
+    const pConfidence = {confidence};
+    const pBoostProb = {boost_prob};
+    const recentActual = {recent_actual};
+
+    let actualHistory = recentActual.slice();
 
     btn.onclick = function() {{
         ring.style.animation = "spin 0.5s linear infinite";
@@ -261,25 +311,32 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10
         btn.style.color = "#10b981";
         btn.innerHTML = "CALCULATING...";
         termText.innerHTML = "● PROCESSING PAST 3 SIGNALS...<br>● INJECTING STOCHASTIC NOISE...";
-        
+
         setTimeout(() => {{
             ring.style.animation = "none";
             btn.style.background = "#10b981";
             btn.style.color = "#000";
             btn.innerHTML = "GENERATE SIGNAL";
-            
+
             const uniformRandom = Math.random();
             const frechetJump = Math.pow(Math.abs(Math.log(uniformRandom)), -1.0 / pTail);
             let rawTarget = pMu + (pSigma * frechetJump);
-            
-            if (Math.random() > 0.85) {{ rawTarget *= (1.5 + (Math.random() * pTail)); }}
+
+            // Apply momentum trend: shift target in the direction of recent movement
+            rawTarget *= (1.0 + pMomentum);
+
+            // Boost probability derived from actual data frequency of high rounds
+            if (Math.random() < pBoostProb) {{
+                rawTarget *= (1.2 + (Math.random() * Math.min(pTail, 3.0)));
+            }}
             rawTarget = Math.max(1.05, rawTarget);
 
             let finalTarget = rawTarget;
-            if (signalHistory.length > 0) {{
-                const histSum = signalHistory.reduce((a, b) => a + b, 0);
-                const histAvg = histSum / signalHistory.length;
-                finalTarget = (rawTarget * 0.7) + (histAvg * 0.3);
+            if (actualHistory.length > 0) {{
+                // Blend with actual past outcomes, not past predictions
+                const recent = actualHistory.slice(-3);
+                const actualAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+                finalTarget = (rawTarget * 0.7) + (actualAvg * 0.3);
             }}
 
             const formattedTarget = finalTarget.toFixed(2) + "X";
@@ -291,14 +348,16 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode="AVI10
             if (signalHistory[0]) sig1.innerText = "S1: " + signalHistory[0] + "x";
             if (signalHistory[1]) sig2.innerText = "S2: " + signalHistory[1] + "x";
             if (signalHistory[2]) sig3.innerText = "S3: " + signalHistory[2] + "x";
-            
-            const conf = Math.floor(Math.random() * 10) + 89; 
-            const rem = Math.floor(Math.random() * 30) + 15; 
-            
+
+            // Confidence is data-driven, not random
+            const conf = Math.round(pConfidence);
+            // Remaining time derived from signal target magnitude
+            const rem = Math.round(Math.max(15, Math.min(120, finalTarget * 30)));
+
             confVal.innerHTML = conf + "%";
             remVal.innerHTML = rem + "s";
             termText.innerHTML = "● TRIPLE-SIGNAL RECALIBRATED<br>● SIGNAL LOCKED FOR ROUND...";
-            
+
         }}, 1800);
     }};
     </script>
@@ -323,23 +382,23 @@ def show_login():
         <p class="subtext">NO RISK NO GAIN</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
         username_input = st.text_input("USERNAME", placeholder="ENTER USERNAME", label_visibility="collapsed")
         password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
-        
+
         if st.button("INITIALIZE NEURAL MATRIX"):
             user_clean = username_input.strip()
             pass_clean = password_input.strip()
-            
+
             if user_clean in MEMBERS_DB and MEMBERS_DB[user_clean] == pass_clean:
                 st.session_state["pass"] = True
                 st.session_state["user"] = user_clean
                 st.rerun()
             else:
                 st.error("Invalid Username or Password.")
-                
+
     st.markdown(f'<p class="footer-text">AUTHORIZED ACCESS ONLY • CONTACT: {ADMIN_EMAIL}</p>', unsafe_allow_html=True)
 
 def show_dashboard():
@@ -375,7 +434,7 @@ def show_dashboard():
         </ul>
     </div>
     """, unsafe_allow_html=True)
-    
+
     colA, colB = st.columns([4, 1])
     with colA:
         selected_casino = st.selectbox("CASINO", ["AFRICABET", "1XBET", "PREMIER BET"], label_visibility="collapsed")
@@ -385,12 +444,12 @@ def show_dashboard():
             st.session_state["pass"] = False
             st.session_state["user"] = ""
             st.rerun()
-        
-    st.write("") 
-    
+
+    st.write("")
+
     live_history = fetch_live_history(st.session_state["casino"])
-    mu, sigma, momentum, tail_index = execute_2030_neural_math(live_history)
-    render_green_matrix_card(mu, sigma, momentum, tail_index, active_mode=st.session_state["active_tab"])
+    mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual = execute_2030_neural_math(live_history)
+    render_green_matrix_card(mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual, active_mode=st.session_state["active_tab"])
 
     # --------------------------------------------------------------------------
     # INSIDE PORTAL: APK DOWNLOADER & PERSONAL ADMIN INFO BOXES
