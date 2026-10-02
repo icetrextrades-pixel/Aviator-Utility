@@ -79,6 +79,7 @@ if "user_email" not in st.session_state: st.session_state["user_email"] = ""
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
 if "auth_mode" not in st.session_state: st.session_state["auth_mode"] = "login"
+if "auth_notice" not in st.session_state: st.session_state["auth_notice"] = ""
 if "current_signal" not in st.session_state: st.session_state["current_signal"] = None
 if "signal_anim_state" not in st.session_state: st.session_state["signal_anim_state"] = "idle"
 
@@ -502,32 +503,37 @@ def show_login():
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
         if st.session_state["auth_mode"] == "login":
-            username_input = st.text_input("USERNAME", placeholder="ENTER USERNAME", label_visibility="collapsed")
+            email_input = st.text_input("EMAIL ADDRESS", placeholder="ENTER EMAIL ADDRESS", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
+            if st.session_state["auth_notice"]:
+                st.info(st.session_state["auth_notice"])
+                st.session_state["auth_notice"] = ""
 
             if st.button("INITIALIZE NEURAL MATRIX"):
-                user_clean = username_input.strip().lower()
+                email = email_input.strip().lower()
                 pass_clean = password_input.strip()
-                if not user_clean or not pass_clean:
-                    st.error("Please enter both username and password.")
+                # Keep the original administrator accounts usable by their old usernames.
+                if email in KNOWN_USERS:
+                    email = KNOWN_USERS[email]
+                if not email or not pass_clean:
+                    st.error("Please enter both your email address and password.")
                     return
-                if user_clean in KNOWN_USERS:
-                    email = KNOWN_USERS[user_clean]
-                elif "@" in user_clean:
-                    email = user_clean
-                else:
-                    email = f"{user_clean}@aviator.app"
+                if "@" not in email:
+                    st.error("Sign in with the email address registered in Supabase. Usernames alone cannot authenticate with Supabase Auth.")
+                    return
                 try:
                     resp = supabase.auth.sign_in_with_password({"email": email, "password": pass_clean})
                     if resp.user:
+                        metadata = resp.user.user_metadata or {}
+                        display_name = metadata.get("username") or email.split("@", 1)[0]
                         st.session_state["pass"] = True
-                        st.session_state["user"] = user_clean
-                        st.session_state["user_email"] = email
+                        st.session_state["user"] = display_name
+                        st.session_state["user_email"] = resp.user.email or email
                         st.rerun()
                     else:
-                        st.error("Invalid username or password.")
+                        st.error("Sign-in failed. Check your email, password, and whether your email has been confirmed.")
                 except Exception:
-                    st.error("Invalid username or password.")
+                    st.error("Sign-in failed. Check your email, password, and whether your email has been confirmed.")
 
             switch_col1, switch_col2 = st.columns(2)
             with switch_col1:
@@ -557,9 +563,16 @@ def show_login():
                     st.error("Please enter a valid email address.")
                     return
                 try:
-                    resp = supabase.auth.sign_up({"email": email_clean, "password": pass_clean})
+                    resp = supabase.auth.sign_up({
+                        "email": email_clean,
+                        "password": pass_clean,
+                        "options": {"data": {"username": user_clean}},
+                    })
                     if resp.user:
-                        st.success("Account created! You can now sign in.")
+                        st.session_state["auth_notice"] = (
+                            f"Account created for {email_clean}. Sign in with this email and your password. "
+                            "If email confirmation is enabled in Supabase, confirm the message sent to your inbox first."
+                        )
                         st.session_state["auth_mode"] = "login"
                         st.rerun()
                     else:
