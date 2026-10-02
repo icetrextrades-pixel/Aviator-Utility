@@ -457,7 +457,8 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       .instrument.skin-avi10 {{ background:radial-gradient(ellipse at 50% 0%,rgba(16,185,129,.18),transparent 58%),linear-gradient(145deg,rgba(7,24,23,.98),rgba(4,8,15,.98)); }}
       .instrument.skin-avi10 .dial-orbit {{ border-top-color:#6ee7b7; border-right-color:rgba(16,185,129,.5); }}
       .instrument.skin-crusher {{ background:repeating-linear-gradient(135deg,rgba(239,68,68,.045) 0 2px,transparent 2px 11px),radial-gradient(ellipse at 50% 0%,rgba(239,68,68,.2),transparent 58%),linear-gradient(145deg,rgba(31,9,14,.98),rgba(8,7,13,.98)); }}
-      .instrument.skin-crusher .dial-orbit {{ animation-duration:1.8s; border-width:4px; }}
+      .instrument.skin-crusher .dial-orbit.spin-up {{ animation-duration:1.8s; }}
+      .instrument.skin-crusher .dial-orbit {{ border-width:4px; }}
       .instrument.skin-crusher .dial-value {{ text-shadow:0 0 26px rgba(239,68,68,.55); }}
       .instrument-head,.instrument-body,.instrument-foot {{ position:relative; z-index:1; }}
       .instrument-head {{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border-bottom:1px solid rgba(148,163,184,.15); padding-bottom:16px; }}
@@ -471,7 +472,8 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       .dial-track,.dial-orbit,.dial-core {{ position:absolute; border-radius:50%; }}
       .dial-track {{ inset:15px; border:1px solid rgba(148,163,184,.18); background:conic-gradient(from 210deg,transparent 0 9%,color-mix(in srgb,var(--accent) 17%,transparent) 10% 85%,transparent 86%); }}
       .dial-track:before {{ content:""; position:absolute; inset:9px; border-radius:50%; border:1px dashed color-mix(in srgb,var(--accent) 40%,transparent); }}
-      .dial-orbit {{ inset:7px; border:3px solid transparent; border-top-color:var(--accent); border-right-color:color-mix(in srgb,var(--accent) 30%,transparent); filter:drop-shadow(0 0 9px var(--accent)); animation:orbit 2.7s cubic-bezier(.13,.75,.18,1) 1 both; }}
+      .dial-orbit {{ inset:7px; border:3px solid transparent; border-top-color:var(--accent); border-right-color:color-mix(in srgb,var(--accent) 30%,transparent); filter:drop-shadow(0 0 9px var(--accent)); }}
+      .dial-orbit.spin-up {{ animation:orbit 2.7s cubic-bezier(.13,.75,.18,1) 1 both; }}
       .dial-orbit:after {{ content:""; position:absolute; width:10px; height:10px; top:-6px; left:50%; border-radius:50%; background:#fff; box-shadow:0 0 12px 4px var(--accent); }}
       .dial-inner {{ position:absolute; inset:28px; border-radius:50%; border:1px solid rgba(148,163,184,.12); animation:reverse-orbit 8s linear infinite; }}
       .dial-inner:after {{ content:""; position:absolute; width:5px; height:5px; right:12%; top:16%; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); }}
@@ -488,7 +490,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       .telemetry-value {{ color:#f1f5f9; font:900 21px ui-monospace,monospace; margin-top:6px; }}
       .telemetry-value em {{ color:var(--accent); font-style:normal; font-size:11px; }}
       .window-track {{ margin-top:8px; height:3px; background:#182333; overflow:hidden; }}
-      .window-fill {{ height:100%; width:100%; background:var(--accent); box-shadow:0 0 10px var(--accent); transform-origin:left; animation:drain 60s linear both; }}
+      .window-fill {{ height:100%; width:100%; background:var(--accent); box-shadow:0 0 10px var(--accent); transform-origin:left; transform:scaleX({initial_remaining / 60:.3f}); transition:transform .95s linear; }}
       .history-head {{ display:flex; justify-content:space-between; align-items:center; margin:6px 0 8px; color:#8190a3; font:800 9px ui-monospace,monospace; letter-spacing:1.3px; }}
       .history-row {{ display:flex; gap:7px; }}
       .mini-signal {{ flex:1; text-align:center; padding:9px 5px; border:1px solid color-mix(in srgb,var(--row-color) 30%,transparent); background:rgba(6,12,20,.8); color:var(--row-color); font:800 10px ui-monospace,monospace; }}
@@ -499,7 +501,6 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       @keyframes orbit {{ 0% {{ transform:rotate(-90deg) scale(.92); opacity:.45; }} 68% {{ transform:rotate(1040deg) scale(1.04); opacity:1; }} 100% {{ transform:rotate(1080deg) scale(1); opacity:1; }} }}
       @keyframes reverse-orbit {{ to {{ transform:rotate(-360deg); }} }}
       @keyframes core-in {{ from {{ transform:scale(.84); filter:blur(4px); opacity:.4; }} to {{ transform:scale(1); filter:blur(0); opacity:1; }} }}
-      @keyframes drain {{ from {{ transform:scaleX(1); }} to {{ transform:scaleX(0); }} }}
       @media (max-width:560px) {{ .instrument {{ padding:18px 15px; }} .instrument-body {{ grid-template-columns:1fr; }} .dial-wrap {{ width:240px;height:240px; }} .telemetry {{ grid-template-columns:1fr 1fr; }} .telemetry-box:first-child {{ grid-column:1 / -1; }} }}
     </style>
     <div class="instrument {skin_class}">
@@ -509,7 +510,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       </div>
       <div class="instrument-body">
         <div class="dial-wrap">
-          <div class="dial-glow"></div><div class="dial-track"></div><div class="dial-orbit"></div><div class="dial-inner"></div>
+          <div class="dial-glow"></div><div class="dial-track"></div><div class="dial-orbit {"spin-up" if generated_at and signal_age < 4 else ""}"></div><div class="dial-inner"></div>
           <div class="dial-core"><div class="dial-kicker">POTENTIAL TARGET</div><div class="dial-value">{display_target}</div><div class="dial-label">MULTIPLIER</div></div>
           <div class="dial-stat left">NEURAL SIGNAL</div><div class="dial-stat right">EST. WINDOW</div>
         </div>
@@ -689,6 +690,7 @@ def show_dashboard():
                 st.session_state["active_tab"] = mode
                 st.session_state["current_signal"] = None
                 st.session_state["signal_generated_at"] = 0.0
+                st.session_state["auto_signal"] = False
                 st.rerun()
 
     if "casino_selector" not in st.session_state:
@@ -706,6 +708,7 @@ def show_dashboard():
         st.session_state["casino"] = selected_casino
         st.session_state["current_signal"] = None
         st.session_state["signal_generated_at"] = 0.0
+        st.session_state["auto_signal"] = False
     with link_col:
         st.link_button(f"OPEN {selected_casino} ↗", casinos[selected_casino], use_container_width=True)
     with sync_col:
