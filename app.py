@@ -1224,7 +1224,7 @@ def show_dashboard():
     st.markdown('<div class="section-label">02 / LIVE HISTORY REFERENCE</div>', unsafe_allow_html=True)
     gen_col, band_col = st.columns([2.3, 1.3])
     with gen_col:
-        if st.button("REFRESH HISTORICAL REFERENCE  ⟲", use_container_width=True, type="primary", key="generate_signal", disabled=len(live_history) < 20):
+        if st.button("PREDICT", use_container_width=True, type="primary", key="generate_signal", disabled=len(live_history) < 20):
             signal = generate_signal(live_history, active_tab)
             if signal is None:
                 st.warning("Log at least 20 valid round results before generating a historical reference.")
