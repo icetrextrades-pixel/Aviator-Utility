@@ -80,33 +80,10 @@ WHATSAPP_ICON_HTML = """
 """
 
 
-def normalize_phone_number(value: str) -> str:
-    """Convert Zimbabwe local mobile numbers to E.164; preserve other international codes."""
-    cleaned = re.sub(r"[^0-9+]", "", value.strip())
-    if cleaned.startswith("00"):
-        cleaned = "+" + cleaned[2:]
-    elif cleaned.startswith("0"):
-        cleaned = "+263" + cleaned[1:]
-    elif cleaned.startswith("263"):
-        cleaned = "+" + cleaned
-    elif not cleaned.startswith("+"):
-        cleaned = "+" + cleaned
-    if not re.fullmatch(r"\+[1-9]\d{7,14}", cleaned):
-        raise ValueError("Enter a valid international phone number, for example +263 77 123 4567.")
-    return cleaned
-
-
-KNOWN_USERS = {
-    "icetrex": "icetrex@aviator.app",
-    "austin": "austin@aviator.app",
-    "biko": "biko@aviator.app",
-}
-
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "user" not in st.session_state: st.session_state["user"] = ""
 if "user_email" not in st.session_state: st.session_state["user_email"] = ""
 if "user_id" not in st.session_state: st.session_state["user_id"] = ""
-if "pending_signup" not in st.session_state: st.session_state["pending_signup"] = {}
 if "refresh_after_round" not in st.session_state: st.session_state["refresh_after_round"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
@@ -636,155 +613,111 @@ def show_login():
     with col2:
         mode = st.session_state["auth_mode"]
         if mode == "login":
-            identifier = st.text_input("EMAIL OR VERIFIED PHONE", placeholder="EMAIL OR +263 77 123 4567", label_visibility="collapsed")
+            identifier = st.text_input("EMAIL OR VERIFIdef show_login():
+    st.markdown(LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown("""
+    <div class="login-container">
+        <div class="padlock-wrapper">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+        </div>
+        <h1 class="title-aviator">AVIATOR <span class="title-signals">SIGNALS</span></h1>
+        <p class="subtext">NO RISK NO GAIN</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 4, 1])
+    with col2:
+        mode = st.session_state["auth_mode"]
+        if mode == "login":
+            email_input = st.text_input("EMAIL", placeholder="ENTER EMAIL", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
             if st.session_state["auth_notice"]:
                 st.info(st.session_state["auth_notice"])
                 st.session_state["auth_notice"] = ""
 
             if st.button("INITIALIZE NEURAL MATRIX"):
-                identity = identifier.strip()
-                password = password_input.strip()
-                if identity.lower() in KNOWN_USERS:
-                    identity = KNOWN_USERS[identity.lower()]
-                if not identity or not password:
-                    st.error("Enter your email or verified phone number and password.")
+                email = email_input.strip().lower()
+                if not email or not password_input:
+                    st.error("Enter your email address and password.")
+                    return
+                if "@" not in email:
+                    st.error("Enter a valid email address.")
                     return
                 try:
-                    payload = ({"email": identity.lower(), "password": password}
-                               if "@" in identity else
-                               {"phone": normalize_phone_number(identity), "password": password})
-                    response = supabase.auth.sign_in_with_password(payload)
+                    response = supabase.auth.sign_in_with_password({
+                        "email": email,
+                        "password": password_input,
+                    })
                     if response.user:
                         metadata = response.user.user_metadata or {}
-                        display_name = metadata.get("username") or (response.user.email or identity).split("@", 1)[0]
+                        display_name = metadata.get("username") or (response.user.email or email).split("@", 1)[0]
                         st.session_state["pass"] = True
                         st.session_state["user"] = display_name
                         st.session_state["user_email"] = response.user.email or metadata.get("contact_email", "")
                         st.session_state["user_id"] = response.user.id
                         st.rerun()
                     else:
-                        st.error("Sign-in failed. Check your email or verified phone, password, and confirmation status.")
+                        st.error("Sign-in failed. Check your email, password, and account approval status.")
                 except Exception:
-                    st.error("Sign-in failed. Check your email or verified phone, password, and confirmation status.")
+                    st.error("Sign-in failed. Check your email, password, and account approval status.")
 
             if st.button("CREATE ACCOUNT", use_container_width=True):
-                st.session_state["auth_mode"] = "signup"
-                st.rerun()
-
-        elif mode == "signup":
-            new_user = st.text_input("NEW USERNAME", placeholder="CHOOSE A USERNAME", label_visibility="collapsed")
-            new_email = st.text_input("EMAIL", placeholder="ENTER YOUR EMAIL", label_visibility="collapsed")
-            new_phone = st.text_input("PHONE NUMBER", placeholder="+263 77 123 4567", label_visibility="collapsed")
-            channel_label = st.selectbox("VERIFICATION CHANNEL", ["SMS", "WhatsApp"], key="signup_channel")
-            new_pass = st.text_input("NEW PASSWORD", type="password", placeholder="CHOOSE A PASSWORD", label_visibility="collapsed")
-            confirm_pass = st.text_input("CONFIRM PASSWORD", type="password", placeholder="CONFIRM PASSWORD", label_visibility="collapsed")
-            st.caption("Phone verification must be enabled in Supabase. WhatsApp delivery requires Twilio or Twilio Verify.")
-
-            if st.button("SEND VERIFICATION CODE", type="primary"):
-                username = new_user.strip().lower()
-                email = new_email.strip().lower()
-                password = new_pass.strip()
-                if not username or not email or not new_phone.strip() or not password:
-                    st.error("Complete every field before requesting a code.")
-                elif "@" not in email:
-                    st.error("Enter a valid email address.")
-                elif password != confirm_pass.strip():
-                    st.error("Passwords do not match.")
-                else:
-                    try:
-                        phone = normalize_phone_number(new_phone)
-                        channel = "whatsapp" if channel_label == "WhatsApp" else "sms"
-                        response = supabase.auth.sign_up({
-                            "phone": phone,
-                            "password": password,
-                            "options": {
-                                "channel": channel,
-                                "data": {"username": username, "contact_email": email},
-                            },
-                        })
-                        if response.user:
-                            st.session_state["pending_signup"] = {
-                                "phone": phone, "username": username, "email": email,
-                                "password": password, "channel": channel,
-                            }
-                            st.session_state["auth_mode"] = "verify_phone"
-                            st.rerun()
-                        else:
-                            st.error("Supabase did not start phone verification. Check the phone provider configuration.")
-                    except Exception as exc:
-                        if "already" in str(exc).lower() or "registered" in str(exc).lower():
-                            st.error("That phone number is already registered. Sign in with it or contact support.")
-                        elif "provider" in str(exc).lower() or "sms" in str(exc).lower() or "whatsapp" in str(exc).lower():
-                            st.error("Phone delivery is not configured for that channel in Supabase yet.")
-                        else:
-                            st.error("Could not send a verification code. Check the number and Supabase phone provider settings.")
-
-            if st.button("BACK TO LOGIN", use_container_width=True):
-                st.session_state["auth_mode"] = "login"
+                st.session_state["auth_mode"] = "signup_notice"
                 st.rerun()
 
         else:
-            pending = st.session_state.get("pending_signup", {})
-            if not pending:
-                st.error("Your verification session expired. Start account creation again.")
-                if st.button("BACK TO ACCOUNT CREATION"):
-                    st.session_state["auth_mode"] = "signup"
-                    st.rerun()
-            else:
-                channel_name = "WhatsApp" if pending.get("channel") == "whatsapp" else "SMS"
-                st.markdown(f"### Verify your {channel_name} number")
-                st.caption(f"Enter the code sent to {pending['phone']}.")
-                otp_code = st.text_input("VERIFICATION CODE", max_chars=8, placeholder="ENTER CODE", label_visibility="collapsed")
-                if st.button("VERIFY & FINISH ACCOUNT", type="primary"):
-                    if not otp_code.strip():
-                        st.error("Enter the verification code.")
-                    else:
-                        try:
-                            verified = supabase.auth.verify_otp({
-                                "phone": pending["phone"],
-                                "token": otp_code.strip(),
-                                "type": "sms",
-                            })
-                            if not verified.user:
-                                st.error("The code could not be verified. Check it and try again.")
-                            else:
-                                metadata = {
-                                    "username": pending["username"],
-                                    "contact_email": pending["email"],
-                                    "phone_verified": True,
-                                }
-                                email_linked = True
-                                try:
-                                    supabase.auth.update_user({
-                                        "email": pending["email"],
-                                        "password": pending["password"],
-                                        "data": metadata,
-                                    })
-                                except Exception:
-                                    email_linked = False
-                                    supabase.auth.update_user({
-                                        "password": pending["password"],
-                                        "data": metadata,
-                                    })
-                                try:
-                                    supabase.auth.sign_out()
-                                except Exception:
-                                    pass
-                                st.session_state["pending_signup"] = {}
-                                st.session_state["auth_mode"] = "login"
-                                if email_linked:
-                                    st.session_state["auth_notice"] = "Phone verified. Sign in with your verified phone number and password. Check your email for confirmation if Supabase requires it."
-                                else:
-                                    st.session_state["auth_notice"] = "Phone verified and account created. Sign in with your phone number and password; email is saved as contact information because it could not be linked."
-                                st.rerun()
-                        except Exception:
-                            st.error("Verification failed. Check the code and try again.")
-
-                if st.button("CANCEL / BACK TO CREATE ACCOUNT"):
-                    st.session_state["pending_signup"] = {}
-                    st.session_state["auth_mode"] = "signup"
-                    st.rerun()
+            st.markdown("""
+            <style>
+              .signup-notice {
+                position: relative; isolation: isolate; overflow: hidden;
+                max-width: 700px; margin: 20px auto; padding: 24px 22px;
+                color: #ffe4e6; text-align: center;
+                border: 1px solid rgba(248, 113, 113, .88);
+                background:
+                  linear-gradient(135deg, rgba(40, 7, 13, .96), rgba(13, 8, 17, .97)),
+                  repeating-linear-gradient(0deg, transparent 0 5px, rgba(248, 113, 113, .08) 6px);
+                box-shadow: 0 0 26px rgba(239, 68, 68, .24), inset 0 0 24px rgba(239, 68, 68, .08);
+                clip-path: polygon(0 0, 97% 0, 100% 8%, 100% 100%, 3% 100%, 0 92%);
+                animation: notice-pulse 2.8s ease-in-out infinite alternate;
+              }
+              .signup-notice::before {
+                content: ""; position: absolute; z-index: -1; inset: -70% -30%;
+                background: linear-gradient(transparent 46%, rgba(248, 113, 113, .16) 50%, transparent 54%);
+                animation: notice-scan 4.5s linear infinite; pointer-events: none;
+              }
+              .signup-notice-title {
+                margin: 0 0 12px; color: #f87171;
+                font: 900 10px ui-monospace, monospace; letter-spacing: 3px;
+              }
+              .signup-notice-message {
+                margin: 0; color: #fff1f2; font-size: 15px; line-height: 1.75; font-weight: 700;
+              }
+              .signup-notice-detail {
+                margin: 14px 0 0; padding-top: 12px;
+                border-top: 1px solid rgba(248, 113, 113, .25);
+                color: #fda4af; font-size: 12px; line-height: 1.65;
+              }
+              @keyframes notice-pulse {
+                from { box-shadow: 0 0 16px rgba(239, 68, 68, .18), inset 0 0 18px rgba(239, 68, 68, .05); }
+                to { box-shadow: 0 0 34px rgba(239, 68, 68, .36), inset 0 0 28px rgba(239, 68, 68, .12); }
+              }
+              @keyframes notice-scan { to { transform: translateY(140%); } }
+              @media (prefers-reduced-motion: reduce) {
+                .signup-notice, .signup-notice::before { animation: none; }
+              }
+            </style>
+            <div class="signup-notice" role="alert">
+              <p class="signup-notice-title">ACCOUNT ACCESS / ADMIN APPROVAL REQUIRED</p>
+              <p class="signup-notice-message">Dear user, contact the admin via the contact support or email address with the requirements for signing up, he will approve your request shortly. For assistance please use Whatsapp. Thank you for your patience, you're almost there.</p>
+              <p class="signup-notice-detail">Include your preferred username, email address, and age-verification details. For your security, do not send passwords over WhatsApp or email.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("BACK TO LOGIN", use_container_width=True):
+                st.session_state["auth_mode"] = "login"
+                st.rerun()
 
     st.markdown("""
     <style>
@@ -823,34 +756,8 @@ def show_login():
                     f'<a class="support-whatsapp-link" href="https://wa.me/{whatsapp_number}" target="_blank" rel="noopener noreferrer">{WHATSAPP_ICON_HTML}<span>WhatsApp · {display_phone}</span></a>',
                     unsafe_allow_html=True,
                 )
-
-
-def logout_user():
-    """End the Supabase session and clear signed-in dashboard state."""
-    try:
-        supabase.auth.sign_out()
-    except Exception:
-        pass
-
-    st.session_state["pass"] = False
-    st.session_state["user"] = ""
-    st.session_state["user_email"] = ""
-    st.session_state["user_id"] = ""
-    st.session_state["current_signal"] = None
-    st.session_state["signal_generated_at"] = 0.0
-    st.session_state["refresh_after_round"] = False
-    st.session_state["pending_signup"] = {}
-    st.session_state["auth_mode"] = "login"
-    st.session_state["auth_notice"] = "You have been logged out."
-    st.rerun()
-
-
-def show_dashboard():
-    active_tab = st.session_state["active_tab"]
-    strat = STRATEGIES[active_tab]
-    accent = strat["accent_color"]
-    st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
-    st.markdown(f"<style>:root {{ --accent: {accent}; --accent-soft: color-mix(in srgb, {accent} 20%, transparent); }}</style>", unsafe_allow_html=True)
+ 
+:root {{ --accent: {accent}; --accent-soft: color-mix(in srgb, {accent} 20%, transparent); }}</style>", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="top-nav">
