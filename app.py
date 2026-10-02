@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import numpy as np
 import math
 import os
+import time
 from datetime import datetime
 import pytz
 from supabase import create_client, Client
@@ -80,6 +81,8 @@ if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
 if "auth_mode" not in st.session_state: st.session_state["auth_mode"] = "login"
 if "auth_notice" not in st.session_state: st.session_state["auth_notice"] = ""
+if "signal_generated_at" not in st.session_state: st.session_state["signal_generated_at"] = 0.0
+if "auto_signal" not in st.session_state: st.session_state["auto_signal"] = False
 if "current_signal" not in st.session_state: st.session_state["current_signal"] = None
 if "signal_anim_state" not in st.session_state: st.session_state["signal_anim_state"] = "idle"
 
@@ -353,134 +356,183 @@ LOGIN_CSS = f"""
 </style>
 """
 
-DASHBOARD_CSS = f"""
+DASHBOARD_CSS = """
 <style>
-    .stApp {{
-        background: linear-gradient(rgba(3, 8, 5, 0.88), rgba(3, 8, 5, 0.95)),
-                    url('https://images.hdqwalls.com/wallpapers/lionel-messi-trophy-4k-hy.jpg');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: white;
-        font-family: 'Inter', sans-serif;
-    }}
-    .top-nav {{ display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; font-weight: bold; margin-bottom: 20px; }}
-    .dash-header {{ text-align: center; margin-bottom: 20px; }}
-    .dash-title {{ font-size: 28px; font-style: italic; font-weight: 900; margin: 0; color: #ffffff; }}
-    .dash-bullets {{ list-style: none; padding: 0; margin: 10px 0; font-size: 10px; font-weight: bold; color: #10b981; letter-spacing: 1px; }}
-    .dash-bullets li::before {{ content: "● "; color: #10b981; }}
-
-    div[data-baseweb="select"] > div {{ background-color: rgba(5,5,5,0.9) !important; border: 1px solid #064e3b !important; border-radius: 10px !important; color: white !important;}}
-    header {{ display: none !important; }}
-
-    div[data-testid="stHorizontalBlock"] button {{
-        background: rgba(5, 5, 5, 0.85) !important;
-        color: #9ca3af !important;
-        border: 1px solid #1f2937 !important;
-        border-radius: 10px !important;
-        font-weight: bold !important;
-        font-size: 12px !important;
-    }}
+    :root { --accent: #10b981; --accent-soft: rgba(16,185,129,.16); }
+    .stApp {
+        background:
+          radial-gradient(ellipse at 8% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 38%),
+          radial-gradient(ellipse at 100% 80%, rgba(25,54,86,.2), transparent 42%),
+          linear-gradient(135deg, #05070d 0%, #080d16 48%, #05070c 100%);
+        color: #e9f4ff;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    .stApp:before {
+        content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        opacity: .11; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+        background-size: 38px 38px; mask-image: linear-gradient(to bottom, black, transparent 84%);
+    }
+    [data-testid="stAppViewContainer"] > .main { position: relative; z-index: 1; }
+    header { display: none !important; }
+    .block-container { max-width: 1160px; padding-top: 1.4rem; padding-bottom: 3rem; }
+    .top-nav {
+        display:flex; justify-content:space-between; align-items:center; gap:16px;
+        padding:10px 14px; margin-bottom:18px; border:1px solid rgba(148,163,184,.18);
+        border-left:3px solid var(--accent); background:rgba(7,12,21,.8);
+        color:#90a4ba; font:700 10px ui-monospace,monospace; letter-spacing:1.4px;
+        box-shadow:0 12px 36px rgba(0,0,0,.28); clip-path:polygon(0 0,99% 0,100% 25%,100% 100%,1% 100%,0 75%);
+    }
+    .top-nav .live { color:var(--accent); }
+    .dash-header { padding:18px 12px 12px; text-align:center; }
+    .eyebrow { color:var(--accent); font:800 10px ui-monospace,monospace; letter-spacing:4px; }
+    .dash-title { margin:6px 0 0; font-size:clamp(32px,5vw,58px); line-height:.95; font-weight:950; font-style:italic; letter-spacing:-2px; color:#f8fafc; text-shadow:0 0 28px color-mix(in srgb,var(--accent) 35%,transparent); }
+    .dash-tagline { margin:12px 0 0; color:#99aabd; font:700 11px ui-monospace,monospace; letter-spacing:2px; }
+    .dash-description { max-width:650px; margin:9px auto 0; color:#6f8094; font-size:12px; line-height:1.6; }
+    div[data-testid="stHorizontalBlock"] button {
+        border:1px solid rgba(148,163,184,.18) !important; background:rgba(8,14,24,.85) !important;
+        color:#c7d2df !important; border-radius:4px !important; font-weight:850 !important;
+        letter-spacing:1.5px !important; min-height:44px; transition:all .2s ease !important;
+    }
+    div[data-testid="stHorizontalBlock"] button:hover { border-color:var(--accent) !important; color:white !important; box-shadow:0 0 22px var(--accent-soft) !important; transform:translateY(-1px); }
+    div[data-testid="stButton"] button[kind="primary"], div[data-testid="stLinkButton"] a {
+        background:linear-gradient(105deg,color-mix(in srgb,var(--accent) 76%,#07101a),color-mix(in srgb,var(--accent) 46%,#111827)) !important;
+        border:1px solid color-mix(in srgb,var(--accent) 75%,white) !important; color:#f8fafc !important;
+        border-radius:4px !important; font-weight:900 !important; letter-spacing:1.5px !important;
+        box-shadow:0 0 25px var(--accent-soft), inset 0 0 18px rgba(255,255,255,.04) !important;
+    }
+    div[data-baseweb="select"] > div, div[data-baseweb="input"] { background:rgba(4,9,17,.94) !important; border:1px solid rgba(148,163,184,.25) !important; border-radius:4px !important; color:white !important; }
+    div[data-baseweb="input"] input { color:#ecf4ff !important; }
+    [data-testid="stMetric"] { background:rgba(8,14,24,.82); border:1px solid rgba(148,163,184,.16); border-left:2px solid var(--accent); padding:12px 15px; }
+    [data-testid="stMetricLabel"] { color:#8292a5 !important; font:700 10px ui-monospace,monospace !important; letter-spacing:1.5px; }
+    [data-testid="stMetricValue"] { color:#f8fafc !important; font-weight:900; }
+    [data-testid="stAlert"] { border-radius:4px; }
+    .section-label { color:var(--accent); font:800 10px ui-monospace,monospace; letter-spacing:2px; margin:14px 0 8px; }
+    .feed-note { border:1px solid rgba(148,163,184,.18); border-left:3px solid var(--accent); background:rgba(7,12,21,.8); padding:12px 15px; color:#aab8c9; font-size:11px; line-height:1.55; }
+    .footer-line { display:flex; align-items:center; gap:8px; color:#556477; font:700 9px ui-monospace,monospace; letter-spacing:1.4px; justify-content:center; margin-top:20px; }
+    @media (max-width:640px) {
+        .block-container { padding-left:1rem; padding-right:1rem; }
+        .top-nav { font-size:8px; letter-spacing:.7px; }
+        .dash-title { letter-spacing:-1px; }
+    }
 </style>
-"""
-
-# ==============================================================================
+"""# ==============================================================================
 # 6. SIGNAL CARD RENDERER
 # ==============================================================================
 def render_signal_card(active_mode: str, signal_value: float, confidence: float,
-                       recent_signals: list, accuracy: dict):
+                       recent_signals: list, accuracy: dict, generated_at: float = 0.0):
     strat = STRATEGIES[active_mode]
     accent = strat["accent_color"]
-    tagline = strat["tagline"]
-    cat_timezone = pytz.timezone('Africa/Harare')
-    current_time = datetime.now(cat_timezone).strftime("%H:%M:%S")
+    mode_tag = {"PREDICTOR": "01 / LOW-VARIANCE LAB", "AVI10": "10 / NEURAL CORE", "MR CRUSHER": "X / HIGH-IMPACT ENGINE"}[active_mode]
+    display_target = f"{signal_value:.2f}X" if signal_value else "— —"
+    confidence_text = f"{int(confidence)}%" if confidence else "—"
+    hits = accuracy["hits"]
+    total = accuracy["total"]
+    rate = accuracy["rate"]
+    signal_age = max(0, time.time() - generated_at) if generated_at else 0
+    window_seconds = 60
+    initial_remaining = max(0, window_seconds - int(signal_age)) if generated_at else 0
+    signal_state = "SIGNAL LOCKED" if generated_at else "AWAITING GENERATION"
+    accuracy_color = "#4ade80" if rate >= 60 else ("#fbbf24" if rate >= 40 else "#fb7185")
 
-    display_target = f"{signal_value:.2f}X" if signal_value else "1.00X"
-    conf_display = f"{int(confidence)}%" if confidence else "---"
+    recent = []
+    for row in recent_signals[:3]:
+        status = "HIT" if row.get("hit") else "MISS"
+        row_color = "#4ade80" if row.get("hit") else "#fb7185"
+        recent.append(f'<span class="mini-signal" style="--row-color:{row_color}">{row["predicted_multiplier"]:.2f}x <b>{status}</b></span>')
+    while len(recent) < 3:
+        recent.append('<span class="mini-signal muted">NO DATA</span>')
 
-    sig_labels = ["S1: ---", "S2: ---", "S3: ---"]
-    sig_colors = [accent, accent, accent]
-    for i, s in enumerate(recent_signals[:3]):
-        hit_icon = "+" if s.get("hit") else "-"
-        sig_labels[i] = f"S{i+1}: {s['predicted_multiplier']:.2f}x {hit_icon}"
-        sig_colors[i] = "#10b981" if s.get("hit") else "#ef4444"
-
-    remaining = max(15, min(120, int(signal_value * 30))) if signal_value else 0
-
-    acc_total = accuracy["total"]
-    acc_rate = accuracy["rate"]
-    acc_hits = accuracy["hits"]
-    acc_color = "#10b981" if acc_rate >= 60 else ("#f59e0b" if acc_rate >= 40 else "#ef4444")
-
-    html_code = f"""
-    <div style="background: rgba(2, 17, 7, 0.92); border: 1px solid #064e3b; border-radius: 25px; padding: 25px; text-align: center; color: white; font-family: sans-serif; max-width: 500px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.9); backdrop-filter: blur(12px);">
-
-        <h2 style="margin:0; font-weight: 900; font-size: 22px;">
-            <span style="color: {accent};">⚡</span> {active_mode} MATRIX BOT <span style="color: {accent};">⚡</span>
-        </h2>
-        <p style="color: {accent}; font-size: 10px; font-weight: 900; letter-spacing: 3px; margin: 4px 0 0 0;">{tagline}</p>
-        <p style="color: #059669; font-size: 11px; font-weight: 900; letter-spacing: 2px; margin-top: 8px; margin-bottom: 20px;">
-            ZIMBABWE TIME: <span id="clock-display">{current_time}</span>
-        </p>
-
-        <div style="position:relative; width: 190px; height: 190px; margin: 0 auto; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-            <div id="ring" style="position:absolute; width: 100%; height: 100%; border-radius: 50%; border: 4px solid #064e3b; border-top-color: {accent}; transition: all 0.3s; z-index: 1;"></div>
-            <div style="position:absolute; width: 110%; height: 110%; border-radius: 50%; background: radial-gradient(circle, {accent}22 0%, rgba(0,0,0,0) 70%); z-index: 0;"></div>
-
-            <p style="color: #059669; font-size: 9px; margin:0; font-weight:900; z-index:2; letter-spacing: 1px;">POTENTIAL TARGET</p>
-            <h1 id="target-display" style="font-size: 50px; margin:-5px 0 0 0; font-weight:900; z-index:2; color: white;">{display_target}</h1>
+    card = f"""
+    <style>
+      * {{ box-sizing:border-box; }}
+      .instrument {{ --accent:{accent}; color:#eff6ff; position:relative; overflow:hidden; max-width:760px; margin:8px auto 16px; padding:25px 26px 20px; border:1px solid color-mix(in srgb,var(--accent) 55%,#263449); border-top:3px solid var(--accent); background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 54%),linear-gradient(145deg,rgba(10,18,30,.98),rgba(4,8,15,.98)); box-shadow:0 22px 70px rgba(0,0,0,.55),0 0 35px color-mix(in srgb,var(--accent) 12%,transparent); font-family:Inter,Arial,sans-serif; clip-path:polygon(0 0,97% 0,100% 4%,100% 100%,3% 100%,0 96%); }}
+      .instrument:before {{ content:""; position:absolute; inset:0; pointer-events:none; opacity:.12; background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(255,255,255,.08) 5px); }}
+      .instrument:after {{ content:""; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); }}
+      .instrument-head,.instrument-body,.instrument-foot {{ position:relative; z-index:1; }}
+      .instrument-head {{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border-bottom:1px solid rgba(148,163,184,.15); padding-bottom:16px; }}
+      .instrument-title {{ margin:0; font-size:clamp(17px,3vw,22px); font-weight:950; font-style:italic; letter-spacing:1px; }}
+      .instrument-sub {{ color:#8193a8; font:700 9px ui-monospace,monospace; letter-spacing:2px; margin-top:6px; }}
+      .live-chip {{ border:1px solid color-mix(in srgb,var(--accent) 45%,transparent); color:var(--accent); background:color-mix(in srgb,var(--accent) 10%,transparent); padding:6px 8px; font:900 9px ui-monospace,monospace; letter-spacing:1px; white-space:nowrap; }}
+      .live-chip i {{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent); margin-right:6px; box-shadow:0 0 10px var(--accent); }}
+      .instrument-body {{ display:grid; grid-template-columns:minmax(230px,1fr) minmax(180px,.82fr); align-items:center; gap:15px; padding:20px 0; }}
+      .dial-wrap {{ position:relative; display:grid; place-items:center; width:260px; height:260px; margin:auto; }}
+      .dial-glow {{ position:absolute; inset:23px; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--accent) 15%,transparent),transparent 68%); filter:blur(5px); }}
+      .dial-track,.dial-orbit,.dial-core {{ position:absolute; border-radius:50%; }}
+      .dial-track {{ inset:15px; border:1px solid rgba(148,163,184,.18); background:conic-gradient(from 210deg,transparent 0 9%,color-mix(in srgb,var(--accent) 17%,transparent) 10% 85%,transparent 86%); }}
+      .dial-track:before {{ content:""; position:absolute; inset:9px; border-radius:50%; border:1px dashed color-mix(in srgb,var(--accent) 40%,transparent); }}
+      .dial-orbit {{ inset:7px; border:3px solid transparent; border-top-color:var(--accent); border-right-color:color-mix(in srgb,var(--accent) 30%,transparent); filter:drop-shadow(0 0 9px var(--accent)); animation:orbit 2.7s cubic-bezier(.13,.75,.18,1) 1 both; }}
+      .dial-orbit:after {{ content:""; position:absolute; width:10px; height:10px; top:-6px; left:50%; border-radius:50%; background:#fff; box-shadow:0 0 12px 4px var(--accent); }}
+      .dial-inner {{ position:absolute; inset:28px; border-radius:50%; border:1px solid rgba(148,163,184,.12); animation:reverse-orbit 8s linear infinite; }}
+      .dial-inner:after {{ content:""; position:absolute; width:5px; height:5px; right:12%; top:16%; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); }}
+      .dial-core {{ inset:52px; display:flex; flex-direction:column; justify-content:center; align-items:center; background:radial-gradient(circle at 50% 28%,rgba(30,48,68,.8),rgba(4,8,15,.96) 68%); border:1px solid color-mix(in srgb,var(--accent) 42%,#1e293b); box-shadow:inset 0 0 28px rgba(0,0,0,.7),0 0 26px color-mix(in srgb,var(--accent) 12%,transparent); animation:core-in .55s ease-out both; }}
+      .dial-kicker {{ color:#8497aa; font:800 8px ui-monospace,monospace; letter-spacing:2px; }}
+      .dial-value {{ margin:5px 0; color:#fff; font-size:clamp(34px,6vw,45px); line-height:1; font-weight:950; letter-spacing:-2px; text-shadow:0 0 22px color-mix(in srgb,var(--accent) 32%,transparent); }}
+      .dial-label {{ color:var(--accent); font:900 8px ui-monospace,monospace; letter-spacing:2px; }}
+      .dial-stat {{ position:absolute; color:#8293a8; font:800 8px ui-monospace,monospace; letter-spacing:1px; }}
+      .dial-stat.left {{ left:0; top:48%; writing-mode:vertical-rl; transform:rotate(180deg); }}
+      .dial-stat.right {{ right:0; top:48%; writing-mode:vertical-rl; }}
+      .telemetry {{ display:grid; gap:10px; }}
+      .telemetry-box {{ padding:12px 13px; border:1px solid rgba(148,163,184,.16); border-left:2px solid var(--accent); background:rgba(4,9,17,.72); }}
+      .telemetry-label {{ color:#8190a3; font:800 9px ui-monospace,monospace; letter-spacing:1.4px; }}
+      .telemetry-value {{ color:#f1f5f9; font:900 21px ui-monospace,monospace; margin-top:6px; }}
+      .telemetry-value em {{ color:var(--accent); font-style:normal; font-size:11px; }}
+      .window-track {{ margin-top:8px; height:3px; background:#182333; overflow:hidden; }}
+      .window-fill {{ height:100%; width:100%; background:var(--accent); box-shadow:0 0 10px var(--accent); transform-origin:left; animation:drain 60s linear both; }}
+      .history-head {{ display:flex; justify-content:space-between; align-items:center; margin:6px 0 8px; color:#8190a3; font:800 9px ui-monospace,monospace; letter-spacing:1.3px; }}
+      .history-row {{ display:flex; gap:7px; }}
+      .mini-signal {{ flex:1; text-align:center; padding:9px 5px; border:1px solid color-mix(in srgb,var(--row-color) 30%,transparent); background:rgba(6,12,20,.8); color:var(--row-color); font:800 10px ui-monospace,monospace; }}
+      .mini-signal b {{ display:block; font-size:8px; margin-top:3px; letter-spacing:1px; }}
+      .mini-signal.muted {{ color:#516074; border-color:rgba(148,163,184,.12); }}
+      .instrument-foot {{ display:flex; justify-content:space-between; gap:10px; align-items:center; border-top:1px solid rgba(148,163,184,.15); padding-top:13px; color:#697b90; font:700 8px ui-monospace,monospace; letter-spacing:1.2px; }}
+      .instrument-foot strong {{ color:var(--accent); }}
+      @keyframes orbit {{ 0% {{ transform:rotate(-90deg) scale(.92); opacity:.45; }} 68% {{ transform:rotate(1040deg) scale(1.04); opacity:1; }} 100% {{ transform:rotate(1080deg) scale(1); opacity:1; }} }}
+      @keyframes reverse-orbit {{ to {{ transform:rotate(-360deg); }} }}
+      @keyframes core-in {{ from {{ transform:scale(.84); filter:blur(4px); opacity:.4; }} to {{ transform:scale(1); filter:blur(0); opacity:1; }} }}
+      @keyframes drain {{ from {{ transform:scaleX(1); }} to {{ transform:scaleX(0); }} }}
+      @media (max-width:560px) {{ .instrument {{ padding:18px 15px; }} .instrument-body {{ grid-template-columns:1fr; }} .dial-wrap {{ width:240px;height:240px; }} .telemetry {{ grid-template-columns:1fr 1fr; }} .telemetry-box:first-child {{ grid-column:1 / -1; }} }}
+    </style>
+    <div class="instrument">
+      <div class="instrument-head">
+        <div><p class="instrument-title">{active_mode} / SIGNAL CORE</p><div class="instrument-sub">{mode_tag} &nbsp;•&nbsp; {strat["tagline"]}</div></div>
+        <div class="live-chip"><i></i>ENGINE READY</div>
+      </div>
+      <div class="instrument-body">
+        <div class="dial-wrap">
+          <div class="dial-glow"></div><div class="dial-track"></div><div class="dial-orbit"></div><div class="dial-inner"></div>
+          <div class="dial-core"><div class="dial-kicker">POTENTIAL TARGET</div><div class="dial-value">{display_target}</div><div class="dial-label">MULTIPLIER</div></div>
+          <div class="dial-stat left">NEURAL SIGNAL</div><div class="dial-stat right">EST. WINDOW</div>
         </div>
-
-        <!-- ACCURACY TRACKER -->
-        <div style="background: rgba(1, 20, 9, 0.9); border: 1px solid {acc_color}; border-radius: 12px; padding: 12px; margin-top: 15px; text-align: center;">
-            <p style="color: {acc_color}; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; margin: 0 0 6px 0;">
-                PREDICTION ACCURACY
-            </p>
-            <div style="display: flex; justify-content: space-around; font-family: monospace; font-size: 14px; font-weight: bold;">
-                <span style="color: {acc_color};">{acc_rate}%</span>
-                <span style="color: #9ca3af; font-size: 10px; padding-top: 3px;">{acc_hits}/{acc_total} HITS</span>
-            </div>
+        <div class="telemetry">
+          <div class="telemetry-box">
+            <div class="telemetry-label">NEXT SIGNAL WINDOW</div>
+            <div class="telemetry-value"><span id="countdown">{initial_remaining:02d}</span><em> SEC</em></div>
+            <div class="window-track"><div class="window-fill" id="window-fill"></div></div>
+          </div>
+          <div class="telemetry-box"><div class="telemetry-label">MODEL CONFIDENCE</div><div class="telemetry-value">{confidence_text}<em> / SAMPLE</em></div></div>
+          <div class="telemetry-box"><div class="telemetry-label">HISTORY ACCURACY</div><div class="telemetry-value" style="color:{accuracy_color}">{rate}% <em>{hits}/{total} RESOLVED</em></div></div>
         </div>
-
-        <!-- PAST 3 SIGNALS RECALIBRATION BOX -->
-        <div style="background: rgba(1, 20, 9, 0.9); border: 1px dashed #059669; border-radius: 12px; padding: 12px; margin-top: 15px; text-align: center;">
-            <p style="color: #10b981; font-size: 9px; font-weight: 900; letter-spacing: 1.5px; margin: 0 0 8px 0;">
-                TRIPLE-SIGNAL RECALIBRATION HISTORY
-            </p>
-            <div style="display: flex; justify-content: space-around; font-family: monospace; font-size: 12px; font-weight: bold;">
-                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: {sig_colors[0]};">{sig_labels[0]}</span>
-                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: {sig_colors[1]};">{sig_labels[1]}</span>
-                <span style="background: #030805; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 6px; color: {sig_colors[2]};">{sig_labels[2]}</span>
-            </div>
-        </div>
-
-        <div style="background: rgba(3, 8, 5, 0.9); border: 1px solid #1f2937; border-radius: 15px; padding: 18px; margin-top: 15px; text-align: left; font-family: monospace; font-size: 13px;">
-            <div style="display:flex; justify-content: space-between; margin-bottom: 12px; font-weight: bold;">
-                <span style="color: white;">⏱ REMAINING:</span> <span id="rem-val" style="color: {accent};">{remaining}s</span>
-            </div>
-            <div style="display:flex; justify-content: space-between; margin-bottom: 12px; font-weight: bold;">
-                <span style="color: white;">✅ CONFIDENCE:</span> <span id="conf-val" style="color: {accent};">{conf_display}</span>
-            </div>
-            <div style="background: #000; padding: 10px; border-radius: 8px; color: #047857; font-size: 10px; font-weight: bold;" id="term-text">
-                ● SIGNAL LOCKED • {active_mode} STRATEGY ACTIVE
-            </div>
-        </div>
-
-        <p style="color: #059669; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-top: 20px; margin-bottom: 5px;">RECALIBRATE MATRIX</p>
-        <p style="color: #6b7280; font-size: 8px; font-weight: bold; letter-spacing: 2px; margin: 0;">NEURAL MATRIX V3.0 • LIVE ACCURACY TRACKING</p>
+      </div>
+      <div class="history-head"><span>RECENT SIGNAL CHECKS</span><span>TRIPLE TRACE</span></div>
+      <div class="history-row">{''.join(recent)}</div>
+      <div class="instrument-foot"><span>STATE: <strong id="signal-state">{signal_state}</strong></span><span>LOCAL ROUND FEED &nbsp;•&nbsp; NOT AN OPERATOR FEED</span></div>
     </div>
-
     <script>
-    setInterval(() => {{
-        const now = new Date();
-        const timeStr = now.toTimeString().split(' ')[0];
-        const clockElem = document.getElementById('clock-display');
-        if (clockElem) clockElem.innerText = timeStr;
-    }}, 1000);
+      let seconds = {initial_remaining};
+      const timer = document.getElementById("countdown");
+      const state = document.getElementById("signal-state");
+      const fill = document.getElementById("window-fill");
+      if (seconds <= 0) {{ if (timer) timer.textContent = "—"; if (state) state.textContent = "GENERATE SIGNAL TO START"; if (fill) fill.style.width = "0%"; }}
+      else {{
+        const tick = setInterval(() => {{
+          seconds = Math.max(0, seconds - 1);
+          if (timer) timer.textContent = String(seconds).padStart(2, "0");
+          if (fill) fill.style.transform = "scaleX(" + (seconds / 60) + ")";
+          if (seconds === 0) {{ if (state) state.textContent = "WINDOW COMPLETE • READY"; clearInterval(tick); }}
+        }}, 1000);
+      }}
     </script>
-    <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
     """
-    components.html(html_code, height=700)
+    components.html(card, height=590, scrolling=False)
 
 # ==============================================================================
 # 7. LOGIN & DASHBOARD VIEWS
@@ -591,157 +643,138 @@ def show_login():
     st.markdown(f'<p class="footer-text">AUTHORIZED ACCESS ONLY • CONTACT: {ADMIN_EMAIL}</p>', unsafe_allow_html=True)
 
 def show_dashboard():
-    st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
-    st.markdown(f"""
-    <div class="top-nav">
-        <div>🖧 CPU: 14% &nbsp;&nbsp; ⚗ USER: <span style="color:#10b981;">{st.session_state['user'].upper()}</span></div>
-        <div><span style="border: 1px solid #1f2937; padding: 3px 8px; border-radius: 5px;">💾 SAVE WORK</span> &nbsp; <span style="color: #10b981;">📶 LIVE SYNC</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-
     active_tab = st.session_state["active_tab"]
     strat = STRATEGIES[active_tab]
-
-    t1, t2, t3 = st.columns(3)
-    with t1:
-        if st.button("PREDICTOR", use_container_width=True):
-            st.session_state["active_tab"] = "PREDICTOR"
-            st.session_state["current_signal"] = None
-            st.rerun()
-    with t2:
-        if st.button("MR CRUSHER", use_container_width=True):
-            st.session_state["active_tab"] = "MR CRUSHER"
-            st.session_state["current_signal"] = None
-            st.rerun()
-    with t3:
-        if st.button("AVI10", use_container_width=True):
-            st.session_state["active_tab"] = "AVI10"
-            st.session_state["current_signal"] = None
-            st.rerun()
+    accent = strat["accent_color"]
+    st.markdown(DASHBOARD_CSS, unsafe_allow_html=True)
+    st.markdown(f"<style>:root {{ --accent: {accent}; --accent-soft: color-mix(in srgb, {accent} 20%, transparent); }}</style>", unsafe_allow_html=True)
 
     st.markdown(f"""
-    <div class="dash-header" style="margin-top: 15px;">
-        <h1 class="dash-title">{active_tab} NEURAL</h1>
-        <p style="color: {strat['accent_color']}; font-size: 12px; font-weight: 900; letter-spacing: 2px; margin: 5px 0 0 0;">{strat['tagline']}</p>
-        <ul class="dash-bullets">
-            <li>NO RISK NO GAIN</li>
-            <li>THE KEY TO SUCCESS IS A LONG JOURNEY</li>
-            <li>NEURAL MATRIX V3.0</li>
-        </ul>
+    <div class="top-nav">
+      <span>AVI10 / NEURAL MATRIX &nbsp;•&nbsp; MEMBER: {st.session_state['user'].upper()}</span>
+      <span><span class="live">● SECURE SESSION</span> &nbsp; / &nbsp; ZIMBABWE STANDARD TIME</span>
     </div>
     """, unsafe_allow_html=True)
 
-    colA, colB = st.columns([4, 1])
-    with colA:
-        selected_casino = st.selectbox("CASINO", ["AFRICABET", "1XBET", "PREMIER BET"], label_visibility="collapsed")
-        if selected_casino != st.session_state["casino"]:
-            st.session_state["casino"] = selected_casino
-            st.session_state["current_signal"] = None
+    mode_detail = {
+        "PREDICTOR": ("THE QUIET EDGE", "Measured targets • lower-variance presentation • cool blue instrument suite"),
+        "AVI10": ("THE NEURAL CORE", "Balanced target engine • live matrix visuals • emerald signal suite"),
+        "MR CRUSHER": ("THE IMPACT ENGINE", "High-energy targets • heavy pulse visuals • redline signal suite"),
+    }
+    eyebrow, description = mode_detail[active_tab]
+    st.markdown(f"""
+    <div class="dash-header">
+      <div class="eyebrow">{eyebrow} &nbsp; / &nbsp; {active_tab}</div>
+      <h1 class="dash-title">{active_tab} NEURAL</h1>
+      <p class="dash-tagline">{strat['tagline']} &nbsp; • &nbsp; {strat['min_target']:.1f}–{strat['max_target']:.1f}X TARGET BAND</p>
+      <p class="dash-description">{description}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    mode_columns = st.columns(3)
+    for col, mode in zip(mode_columns, ["PREDICTOR", "AVI10", "MR CRUSHER"]):
+        with col:
+            if st.button(mode, key=f"mode_{mode}", use_container_width=True, type="primary" if mode == active_tab else "secondary"):
+                st.session_state["active_tab"] = mode
+                st.session_state["current_signal"] = None
+                st.session_state["signal_generated_at"] = 0.0
+                st.rerun()
+
+    if "casino_selector" not in st.session_state:
+        st.session_state["casino_selector"] = st.session_state.get("casino", "AFRICABET")
+    casinos = {
+        "AFRICABET": "https://mobile.africabet.co.zw/sports#/",
+        "1XBET": "https://www.1xbet.com/",
+        "PREMIER BET": "https://www.premierbet.com/",
+    }
+    st.markdown('<div class="section-label">01 / OPERATOR CONNECTION</div>', unsafe_allow_html=True)
+    op_col, link_col, sync_col = st.columns([2.2, 1.5, 2])
+    with op_col:
+        selected_casino = st.selectbox("CASINO / ROUND SOURCE", list(casinos.keys()), key="casino_selector", label_visibility="collapsed")
+    if selected_casino != st.session_state["casino"]:
         st.session_state["casino"] = selected_casino
-    with colB:
-        if st.button("LOGOUT"):
-            try:
-                supabase.auth.sign_out()
-            except Exception:
-                pass
-            st.session_state["pass"] = False
-            st.session_state["user"] = ""
-            st.session_state["user_email"] = ""
-            st.rerun()
+        st.session_state["current_signal"] = None
+        st.session_state["signal_generated_at"] = 0.0
+    with link_col:
+        st.link_button(f"OPEN {selected_casino} ↗", casinos[selected_casino], use_container_width=True)
+    with sync_col:
+        round_count = get_round_count(selected_casino)
+        st.markdown(f"""
+        <div class="feed-note"><b style="color:{accent}">SUPABASE ROUND LOG</b><br>{round_count} results stored for {selected_casino}. Select a casino to switch its history and signal model.</div>
+        """, unsafe_allow_html=True)
 
-    st.write("")
-
-    # Fetch data and compute math
-    live_history = fetch_live_history(st.session_state["casino"])
-    round_count = get_round_count(st.session_state["casino"])
+    live_history = fetch_live_history(selected_casino)
     mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual = execute_neural_math(live_history)
 
-    # Generate signal button
-    gen_col1, gen_col2 = st.columns([3, 1])
-    with gen_col1:
-        if st.button("GENERATE SIGNAL", use_container_width=True, type="primary"):
+    st.markdown('<div class="section-label">02 / LIVE SIGNAL INSTRUMENT</div>', unsafe_allow_html=True)
+    gen_col, loop_col, band_col = st.columns([2.3, 1.6, 1.3])
+    with gen_col:
+        if st.button("GENERATE NEW SIGNAL  ⟲", use_container_width=True, type="primary", key="generate_signal"):
             signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
             st.session_state["current_signal"] = signal
-            save_prediction(st.session_state["casino"], active_tab, signal)
+            st.session_state["signal_generated_at"] = time.time()
+            st.session_state["signal_casino"] = selected_casino
+            st.session_state["signal_mode"] = active_tab
+            save_prediction(selected_casino, active_tab, signal)
             st.rerun()
-    with gen_col2:
-        strat_label = f"{strat['min_target']:.1f}-{strat['max_target']:.1f}x"
-        st.markdown(f"""
-        <div style="text-align: center; padding-top: 8px;">
-            <p style="color: #6b7280; font-size: 9px; font-weight: bold; margin: 0;">TARGET RANGE</p>
-            <p style="color: {strat['accent_color']}; font-size: 14px; font-weight: 900; margin: 2px 0 0 0;">{strat_label}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    with loop_col:
+        st.toggle("AUTO SIGNAL LOOP", key="auto_signal", help="When enabled, the instrument generates another estimate every 60 seconds. It does not read or predict a casino's actual next result.")
+    with band_col:
+        st.metric("TARGET BAND", f"{strat['min_target']:.1f}–{strat['max_target']:.1f}x")
 
-    # Fetch accuracy and recent signals
-    accuracy = get_accuracy_stats(st.session_state["casino"], active_tab)
-    recent_sigs = get_recent_signals(st.session_state["casino"], active_tab)
+    accuracy = get_accuracy_stats(selected_casino, active_tab)
+    recent_signals = get_recent_signals(selected_casino, active_tab)
+    current_signal = st.session_state.get("current_signal")
+    matching_signal = (st.session_state.get("signal_casino") == selected_casino and st.session_state.get("signal_mode") == active_tab)
+    if current_signal is not None and not matching_signal:
+        current_signal = None
+    if current_signal is None:
+        st.info("Signal core is idle. Choose a casino, then generate a signal. Enter actual round results below to update the selected casino's Supabase history.")
+        render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy)
+    else:
+        render_signal_card(active_tab, current_signal, confidence, recent_signals, accuracy, st.session_state.get("signal_generated_at", 0.0))
 
-    # Render the signal card
-    current_signal = st.session_state.get("current_signal") or 1.00
-    render_signal_card(active_tab, current_signal, confidence, recent_sigs, accuracy)
+    if st.session_state.get("auto_signal") and current_signal is not None:
+        @st.fragment(run_every="1s")
+        def auto_signal_countdown():
+            generated = st.session_state.get("signal_generated_at", 0.0)
+            remaining = max(0, 60 - int(time.time() - generated))
+            st.caption(f"AUTO SIGNAL LOOP  •  next estimate in {remaining:02d}s  •  based on stored rounds, not a live casino feed")
+            if remaining <= 0:
+                next_signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
+                st.session_state["current_signal"] = next_signal
+                st.session_state["signal_generated_at"] = time.time()
+                st.session_state["signal_casino"] = selected_casino
+                st.session_state["signal_mode"] = active_tab
+                save_prediction(selected_casino, active_tab, next_signal)
+                st.rerun()
+        auto_signal_countdown()
 
-    # --------------------------------------------------------------------------
-    # ROUND INPUT SECTION
-    # --------------------------------------------------------------------------
-    st.write("")
+    st.markdown('<div class="section-label">03 / ROUND DATA & ACCURACY</div>', unsafe_allow_html=True)
+    round_col, submit_col, stats_col = st.columns([1.5, 1, 2])
+    with round_col:
+        round_multiplier = st.number_input("ACTUAL MULTIPLIER", min_value=1.00, max_value=100.00, value=1.50, step=0.05, format="%.2f", key="round_multiplier")
+    with submit_col:
+        st.write("")
+        if st.button("LOG ROUND RESULT", use_container_width=True, key="log_round"):
+            if insert_round_result(selected_casino, float(round_multiplier)):
+                st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}. Its stored history will be used on the next run.")
+                st.rerun()
+            else:
+                st.error("Could not log this result to Supabase. Check the database table and row-level security policies.")
+
+    with stats_col:
+        st.metric("ROUNDS STORED", round_count)
     st.markdown("""
-    <div style="background: rgba(2, 17, 7, 0.92); border: 1px solid #064e3b; border-radius: 15px; padding: 20px; text-align: center; max-width: 500px; margin: 0 auto;">
-        <h4 style="color: #10b981; margin: 0 0 5px 0; font-size: 14px; font-weight: 900;">📋 LOG ROUND RESULT</h4>
-        <p style="color: #6b7280; font-size: 10px; margin-bottom: 15px;">Enter the actual multiplier — this resolves your last prediction and improves future signals</p>
+    <div class="feed-note">
+      <b>DATA SOURCE STATUS</b><br>
+      The selected operator button opens its website. This build has no official operator result feed connected.
+      Round values entered here are saved to Supabase and are then used for that operator's history and signal calculations.
+      Estimates are stochastic summaries of entered data; they are not guaranteed outcomes.
     </div>
     """, unsafe_allow_html=True)
 
-    input_col1, input_col2, input_col3 = st.columns([3, 2, 2])
-    with input_col1:
-        round_multiplier = st.number_input(
-            "MULTIPLIER", min_value=1.00, max_value=100.00, value=1.50, step=0.05, format="%.2f",
-            label_visibility="collapsed"
-        )
-    with input_col2:
-        if st.button("LOG ROUND", use_container_width=True):
-            if insert_round_result(st.session_state["casino"], float(round_multiplier)):
-                st.success(f"Logged {round_multiplier:.2f}x — prediction accuracy updated")
-                st.rerun()
-            else:
-                st.error("Failed to log round. Please try again.")
-    with input_col3:
-        st.markdown(f"""
-        <div style="text-align: center; padding-top: 8px;">
-            <p style="color: #10b981; font-size: 18px; font-weight: 900; margin: 0;">{round_count}</p>
-            <p style="color: #6b7280; font-size: 9px; font-weight: bold; margin: 2px 0 0 0;">ROUNDS LOGGED</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # --------------------------------------------------------------------------
-    # APK & ADMIN BOXES
-    # --------------------------------------------------------------------------
-    st.write("")
-    box_col1, box_col2 = st.columns(2)
-
-    with box_col1:
-        st.markdown(f"""
-        <div style="background: rgba(10, 10, 16, 0.9); border: 1px solid #2a1644; border-radius: 15px; padding: 15px; text-align: center;">
-            <h4 style="color: #a855f7; margin: 0 0 5px 0; font-size: 14px; font-weight: 900;">📲 DOWNLOAD APK</h4>
-            <p style="color: #9ca3af; font-size: 10px; margin-bottom: 12px;">Get the official Android app package for mobile execution.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.download_button(
-            label="DOWNLOAD MATRIX APK",
-            data=b"ICETREX_NEURAL_MATRIX_V2_APK_BINARY",
-            file_name="Icetrex_Aviator_Matrix_v2.apk",
-            mime="application/vnd.android.package-archive",
-            use_container_width=True
-        )
-
-    with box_col2:
-        st.markdown(f"""
-        <div style="background: rgba(2, 17, 7, 0.9); border: 1px solid #064e3b; border-radius: 15px; padding: 15px; text-align: center;">
-            <h4 style="color: #10b981; margin: 0 0 5px 0; font-size: 14px; font-weight: 900;">👤 ADMIN INFORMATION</h4>
-            <p style="color: #ffffff; font-size: 11px; margin: 3px 0; font-weight: bold;">📧 Email: <span style="color:#10b981;">{ADMIN_EMAIL}</span></p>
-            <p style="color: #ffffff; font-size: 11px; margin: 3px 0; font-weight: bold;">💬 WhatsApp: <span style="color:#10b981;">{ADMIN_WHATSAPP}</span></p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown('<div class="footer-line">AVI10 NEURAL MATRIX &nbsp;•&nbsp; EDGE SYSTEMS / SESSION ACTIVE</div>', unsafe_allow_html=True)
 
 # ==============================================================================
 # 8. ROUTER
