@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import numpy as np
 import math
 import os
@@ -6,17 +7,62 @@ from datetime import datetime
 import pytz
 from supabase import create_client, Client
 
+# Page configuration must be the first Streamlit command.
+st.set_page_config(
+    page_title="AVI10 NEURAL MATRIX",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
 # ==============================================================================
 # 1. SUPABASE CLIENT & AUTH CONFIG
 # ==============================================================================
-SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
+def _get_config_value(*names: str) -> str:
+    """Read a setting from environment variables or Streamlit secrets."""
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value.strip()
 
-@st.cache_resource
-def get_supabase() -> Client:
+    try:
+        for name in names:
+            if name in st.secrets:
+                value = st.secrets[name]
+                if value:
+                    return str(value).strip()
+    except Exception:
+        pass
+
+    return ""
+
+
+# Support both conventional Streamlit/Supabase names and the existing Vite names.
+SUPABASE_URL = _get_config_value("SUPABASE_URL", "VITE_SUPABASE_URL")
+SUPABASE_KEY = _get_config_value(
+    "SUPABASE_KEY",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_ANON_KEY",
+)
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error(
+        "Supabase is not configured for this Streamlit deployment. "
+        "Add SUPABASE_URL and SUPABASE_KEY (or the existing VITE_SUPABASE_* names) "
+        "in Streamlit App Settings → Secrets, then reboot the app."
+    )
+    st.stop()
+
+
+def _create_supabase_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-supabase = get_supabase()
+
+# Keep the authenticated client isolated to this browser session.
+if "supabase_client" not in st.session_state:
+    st.session_state["supabase_client"] = _create_supabase_client()
+
+supabase: Client = st.session_state["supabase_client"]
 
 ADMIN_EMAIL = "icetrextrades@gmail.com"
 ADMIN_WHATSAPP = "+263779174062"
@@ -35,8 +81,6 @@ if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10
 if "auth_mode" not in st.session_state: st.session_state["auth_mode"] = "login"
 if "current_signal" not in st.session_state: st.session_state["current_signal"] = None
 if "signal_anim_state" not in st.session_state: st.session_state["signal_anim_state"] = "idle"
-
-st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 2. STRATEGY CONFIGURATIONS
@@ -435,7 +479,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
     </script>
     <style> @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }} </style>
     """
-    st.components.v1.html(html_code, height=700)
+    components.html(html_code, height=700)
 
 # ==============================================================================
 # 7. LOGIN & DASHBOARD VIEWS
