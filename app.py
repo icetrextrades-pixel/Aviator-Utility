@@ -47,6 +47,8 @@ SUPABASE_KEY = _get_config_value(
     "SUPABASE_PUBLISHABLE_KEY",
     "VITE_SUPABASE_ANON_KEY",
 )
+# Optional server-only key for admin account reporting. Never render or log this value.
+SUPABASE_ADMIN_KEY = _get_config_value("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error(
@@ -93,6 +95,12 @@ if "signal_generated_at" not in st.session_state: st.session_state["signal_gener
 if "auto_signal" not in st.session_state: st.session_state["auto_signal"] = False
 if "current_signal" not in st.session_state: st.session_state["current_signal"] = None
 if "signal_anim_state" not in st.session_state: st.session_state["signal_anim_state"] = "idle"
+if "session_started_at" not in st.session_state: st.session_state["session_started_at"] = 0.0
+if "session_signals_generated" not in st.session_state: st.session_state["session_signals_generated"] = 0
+if "session_rounds_logged" not in st.session_state: st.session_state["session_rounds_logged"] = 0
+if "session_time_limit_minutes" not in st.session_state: st.session_state["session_time_limit_minutes"] = 30
+if "session_budget_limit" not in st.session_state: st.session_state["session_budget_limit"] = 0.0
+if "session_spend_amount" not in st.session_state: st.session_state["session_spend_amount"] = 0.0
 
 # ==============================================================================
 # 2. STRATEGY CONFIGURATIONS
@@ -271,6 +279,71 @@ def send_community_message(message: str) -> None:
         "username": username,
         "message": message.strip()[:1000],
     }).execute()
+
+
+def fetch_recent_round_pulse(limit: int = 15) -> list:
+    """Return shared member-submitted rounds, newest first."""
+    response = (
+        supabase.table("round_history")
+        .select("casino, multiplier, created_at")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return response.data or []
+
+
+def fetch_signal_lab_rows(casino_name: str, strategy: str, limit: int = 100) -> list:
+    """Return resolved predictions for a compact historical comparison chart."""
+    response = (
+        supabase.table("signal_history")
+        .select("predicted_multiplier, actual_multiplier, hit, created_at")
+        .eq("casino", casino_name)
+        .eq("strategy", strategy)
+        .not_.is_("actual_multiplier", "null")
+        .order("created_at", desc=False)
+        .limit(limit)
+        .execute()
+    )
+    return response.data or []
+
+
+def fetch_admin_members(limit: int = 1000) -> list:
+    """List provisioned Supabase Auth users using a server-only admin secret."""
+    if not SUPABASE_ADMIN_KEY:
+        raise RuntimeError("Admin reporting key is not configured.")
+
+    admin_client = create_client(SUPABASE_URL, SUPABASE_ADMIN_KEY)
+    response = admin_client.auth.admin.list_users(page=1, per_page=limit)
+    if isinstance(response, list):
+        users = response
+    elif isinstance(response, dict):
+        users = response.get("users") or response.get("data") or []
+    else:
+        users = getattr(response, "users", None) or getattr(response, "data", None) or []
+
+    rows = []
+    for user in users:
+        def value(name: str, default=None):
+            if isinstance(user, dict):
+                return user.get(name, default)
+            return getattr(user, name, default)
+
+        metadata = value("user_metadata", {}) or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        email = value("email", "") or ""
+        banned_until = value("banned_until")
+        restricted = bool(banned_until) and str(banned_until).lower() != "none"
+        rows.append({
+            "Username": metadata.get("username") or (email.split("@", 1)[0] if email else "Member"),
+            "Email": email,
+            "Access": "Restricted" if restricted else "Provisioned",
+            "Email confirmed": "Yes" if value("email_confirmed_at") or value("confirmed_at") else "No",
+            "Created": value("created_at") or "",
+            "Last sign-in": value("last_sign_in_at") or "Never",
+        })
+    return rows
 
 
 # ==============================================================================
@@ -639,6 +712,12 @@ def show_login():
                         st.session_state["user"] = display_name
                         st.session_state["user_email"] = response.user.email or metadata.get("contact_email", "")
                         st.session_state["user_id"] = response.user.id
+                        st.session_state["session_started_at"] = time.time()
+                        st.session_state["session_signals_generated"] = 0
+                        st.session_state["session_rounds_logged"] = 0
+                        st.session_state["session_spend_amount"] = 0.0
+                        st.session_state["session_budget_limit"] = 0.0
+                        st.session_state["session_time_limit_minutes"] = 30
                         st.rerun()
                     else:
                         st.error("Sign-in failed. Check your email, password, and account approval status.")
@@ -753,9 +832,192 @@ def logout_user():
     st.session_state["current_signal"] = None
     st.session_state["signal_generated_at"] = 0.0
     st.session_state["refresh_after_round"] = False
+    started_at = st.session_state.get("session_started_at", 0.0)
+    elapsed_seconds = max(0, int(time.time() - started_at)) if started_at else 0
+    elapsed_minutes, elapsed_remainder = divmod(elapsed_seconds, 60)
     st.session_state["auth_mode"] = "login"
-    st.session_state["auth_notice"] = "You have been logged out."
+    st.session_state["auth_notice"] = (
+        f"Session recap — {elapsed_minutes}m {elapsed_remainder}s, "
+        f"{st.session_state.get('session_signals_generated', 0)} signals generated, "
+        f"{st.session_state.get('session_rounds_logged', 0)} rounds logged."
+    )
+    st.session_state["session_started_at"] = 0.0
+    st.session_state["session_signals_generated"] = 0
+    st.session_state["session_rounds_logged"] = 0
+    st.session_state["session_spend_amount"] = 0.0
+    st.session_state["session_budget_limit"] = 0.0
+    st.session_state["session_time_limit_minutes"] = 30
     st.rerun()
+
+
+def show_responsible_play_panel():
+    """Offer user-set session and budget reminders; values are self-reported."""
+    if not st.session_state.get("session_started_at"):
+        st.session_state["session_started_at"] = time.time()
+
+    with st.expander("00 / RESPONSIBLE PLAY · SESSION GUARDRAILS", expanded=False):
+        st.caption(
+            "Set a break reminder and an optional spending cap. Amounts are self-reported; "
+            "this app does not read casino wallets or bets and cannot restrict activity on casino sites."
+        )
+        user_key = str(st.session_state.get("user_id", "member"))[:16]
+        session_key = str(int(st.session_state.get("session_started_at", 0)))
+        with st.form("responsible_play_limits"):
+            limit_col, budget_col = st.columns(2)
+            with limit_col:
+                time_limit = st.select_slider(
+                    "Break reminder",
+                    options=[15, 30, 45, 60, 90],
+                    value=int(st.session_state.get("session_time_limit_minutes", 30)),
+                    format_func=lambda minutes: f"{minutes} minutes",
+                    key=f"play_time_limit_{user_key}",
+                )
+            with budget_col:
+                budget_limit = st.number_input(
+                    "Optional spend cap · your currency",
+                    min_value=0.0,
+                    value=float(st.session_state.get("session_budget_limit", 0.0)),
+                    step=1.0,
+                    key=f"play_budget_limit_{user_key}",
+                    help="Leave at 0 to turn the spend reminder off.",
+                )
+            spent = st.number_input(
+                "Amount spent this session · self-reported",
+                min_value=0.0,
+                value=float(st.session_state.get("session_spend_amount", 0.0)),
+                step=1.0,
+                key=f"play_spent_{user_key}_{session_key}",
+            )
+            if st.form_submit_button("SAVE MY REMINDERS", use_container_width=True):
+                st.session_state["session_time_limit_minutes"] = int(time_limit)
+                st.session_state["session_budget_limit"] = float(budget_limit)
+                st.session_state["session_spend_amount"] = float(spent)
+
+        @st.fragment(run_every="30s")
+        def update_session_reminders():
+            started_at = st.session_state.get("session_started_at", 0.0)
+            elapsed_minutes = (time.time() - started_at) / 60 if started_at else 0
+            time_limit_value = int(st.session_state.get("session_time_limit_minutes", 30))
+            progress_col, spend_col = st.columns(2)
+            with progress_col:
+                st.metric("TIME IN SESSION", f"{int(elapsed_minutes)} / {time_limit_value} min")
+                st.progress(min(elapsed_minutes / max(time_limit_value, 1), 1.0))
+                if elapsed_minutes >= time_limit_value:
+                    st.warning("Your break reminder is due. Consider stepping away from the app and casino.")
+            with spend_col:
+                cap = float(st.session_state.get("session_budget_limit", 0.0))
+                amount = float(st.session_state.get("session_spend_amount", 0.0))
+                if cap > 0:
+                    st.metric("SELF-REPORTED SPEND", f"{amount:.2f} / {cap:.2f}")
+                    st.progress(min(amount / cap, 1.0))
+                    if amount >= cap:
+                        st.warning("You reached your chosen spend cap. Consider stopping for this session.")
+                else:
+                    st.metric("SELF-REPORTED SPEND", f"{amount:.2f}")
+                    st.caption("Add a spend cap above to turn on the reminder.")
+
+        update_session_reminders()
+
+
+def show_signal_lab(casino_name: str, strategy: str):
+    with st.expander("02A / SIGNAL LAB · TARGETS VS RESULTS", expanded=False):
+        st.caption(f"Latest resolved records for {casino_name} · {strategy}. A hit means the logged result met or exceeded the saved target.")
+        try:
+            rows = fetch_signal_lab_rows(casino_name, strategy, limit=100)
+        except Exception:
+            st.info("Signal history is not available for this selection yet.")
+            return
+
+        total = len(rows)
+        hits = sum(1 for row in rows if row.get("hit") is True)
+        rate = round(hits / total * 100) if total else 0
+        stat_a, stat_b, stat_c = st.columns(3)
+        stat_a.metric("RESOLVED SAMPLE", total)
+        stat_b.metric("HITS IN SAMPLE", hits)
+        stat_c.metric("SAMPLE HIT RATE", f"{rate}%")
+        if total >= 2:
+            chart_rows = []
+            for index, row in enumerate(rows, start=1):
+                try:
+                    chart_rows.append({
+                        "Round": index,
+                        "Signal target": float(row["predicted_multiplier"]),
+                        "Actual result": float(row["actual_multiplier"]),
+                    })
+                except (TypeError, ValueError, KeyError):
+                    continue
+            if chart_rows:
+                st.line_chart(chart_rows, x="Round", y=["Signal target", "Actual result"], use_container_width=True)
+        else:
+            st.info("Log more rounds to build a historical comparison.")
+        st.caption("Historical data is descriptive only and does not guarantee or predict future results.")
+
+
+def show_community_round_pulse():
+    st.markdown('<div class="section-label">05 / COMMUNITY ROUND PULSE</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="feed-note">Latest member-submitted results across casinos. Entries are unverified and are not an official operator feed.</div>',
+        unsafe_allow_html=True,
+    )
+
+    @st.fragment(run_every="15s")
+    def refresh_round_pulse():
+        try:
+            latest = fetch_recent_round_pulse()
+        except Exception:
+            st.info("Community round pulse is unavailable right now.")
+            return
+        if not latest:
+            st.info("No community round results have been logged yet.")
+            return
+
+        display_rows = []
+        for row in latest:
+            timestamp = row.get("created_at") or ""
+            try:
+                timestamp = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).astimezone(pytz.UTC).strftime("%d %b %H:%M:%S UTC")
+            except (TypeError, ValueError):
+                timestamp = str(timestamp)
+            try:
+                multiplier = f"{float(row.get('multiplier')):.2f}x"
+            except (TypeError, ValueError):
+                multiplier = str(row.get("multiplier", ""))
+            display_rows.append({
+                "Casino": row.get("casino") or "Unknown",
+                "Result": multiplier,
+                "Logged": timestamp,
+            })
+        st.dataframe(display_rows, hide_index=True, use_container_width=True)
+
+    refresh_round_pulse()
+
+
+def show_admin_overview():
+    if (st.session_state.get("user_email") or "").lower() != ADMIN_EMAIL.lower():
+        return
+
+    with st.expander("06 / ADMIN OVERVIEW · MEMBER ACCOUNTS", expanded=False):
+        st.caption(
+            "This view lists accounts already provisioned in Supabase Auth. "
+            "Signup requests still arrive through Contact Support/Admin."
+        )
+        if not SUPABASE_ADMIN_KEY:
+            st.info(
+                "To enable this private account list, add SUPABASE_SECRET_KEY "
+                "(or SUPABASE_SERVICE_ROLE_KEY) to Streamlit server-side Secrets. "
+                "Never add the key to the public repository or app UI."
+            )
+            return
+        try:
+            members = fetch_admin_members()
+        except Exception:
+            st.error("Could not load the Supabase account list. Check the server-side admin key and try again.")
+            return
+        st.metric("PROVISIONED ACCOUNTS", len(members))
+        if members:
+            st.dataframe(members, hide_index=True, use_container_width=True)
+        else:
+            st.info("No Supabase Auth accounts were returned.")
 
 
 def show_dashboard():
@@ -776,6 +1038,8 @@ def show_dashboard():
     with logout_col:
         if st.button("LOG OUT", icon=":material/logout:", use_container_width=True, key="logout_button"):
             logout_user()
+
+    show_responsible_play_panel()
 
     mode_detail = {
         "PREDICTOR": ("THE QUIET EDGE", "Measured targets • lower-variance presentation • cool blue instrument suite"),
@@ -864,6 +1128,7 @@ def show_dashboard():
     # A submitted result is the synchronization event, even when it is 1.00x.
     if st.session_state.get("refresh_after_round"):
         signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
+        st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
         st.session_state["current_signal"] = signal
         st.session_state["signal_generated_at"] = time.time()
         st.session_state["signal_casino"] = selected_casino
@@ -876,6 +1141,7 @@ def show_dashboard():
     with gen_col:
         if st.button("GENERATE NEW SIGNAL  ⟲", use_container_width=True, type="primary", key="generate_signal"):
             signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
+            st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
             st.session_state["current_signal"] = signal
             st.session_state["signal_generated_at"] = time.time()
             st.session_state["signal_casino"] = selected_casino
@@ -902,6 +1168,8 @@ def show_dashboard():
         )
     st.caption("Round sync is event-driven: every submitted result, including 1.00x, resolves the previous signal and immediately generates the next estimate.")
 
+    show_signal_lab(selected_casino, active_tab)
+
     st.markdown('<div class="section-label">03 / ROUND DATA & ACCURACY</div>', unsafe_allow_html=True)
     round_col, submit_col, stats_col = st.columns([1.5, 1, 2])
     with round_col:
@@ -910,6 +1178,7 @@ def show_dashboard():
         st.write("")
         if st.button("LOG ROUND RESULT", use_container_width=True, key="log_round"):
             if insert_round_result(selected_casino, float(round_multiplier), active_tab):
+                st.session_state["session_rounds_logged"] = st.session_state.get("session_rounds_logged", 0) + 1
                 st.session_state["refresh_after_round"] = True
                 st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}; refreshing from the updated history.")
                 st.rerun()
@@ -953,6 +1222,8 @@ def show_dashboard():
                 st.error("Could not send the message. Check that the chat migration has been applied and your Supabase session is active.")
 
     community_chat()
+    show_community_round_pulse()
+    show_admin_overview()
 
     st.markdown('<div class="footer-line">AVI10 NEURAL MATRIX &nbsp;•&nbsp; EDGE SYSTEMS / SESSION ACTIVE</div>', unsafe_allow_html=True)
 
