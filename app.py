@@ -4,10 +4,7 @@ import numpy as np
 import math
 import os
 import re
-import json
 import time
-import urllib.parse
-import urllib.request
 from datetime import datetime
 import pytz
 from supabase import create_client, Client
@@ -90,45 +87,6 @@ def normalize_phone_number(value: str) -> str:
     return cleaned
 
 
-def translate_chat_text(message: str, target_code: str) -> str:
-    """Translate one message via the configured LibreTranslate-compatible API."""
-    base_url = _get_config_value("LIBRETRANSLATE_URL") or "https://libretranslate.com"
-    api_key = _get_config_value("LIBRETRANSLATE_API_KEY")
-    payload = {"q": message, "source": "auto", "target": target_code, "format": "text"}
-    if api_key:
-        payload["api_key"] = api_key
-    request = urllib.request.Request(
-        base_url.rstrip("/") + "/translate",
-        data=urllib.parse.urlencode(payload).encode("utf-8"),
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=15) as response:
-        result = json.loads(response.read().decode("utf-8"))
-    translated = result.get("translatedText")
-    if not translated:
-        raise ValueError("Translation service returned no translated text.")
-    return translated
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_translation_languages(base_url: str, api_key: str) -> list:
-    """Read supported languages from the configured translation service."""
-    url = base_url.rstrip("/") + "/languages"
-    if api_key:
-        url += "?" + urllib.parse.urlencode({"api_key": api_key})
-    try:
-        with urllib.request.urlopen(url, timeout=8) as response:
-            languages = json.loads(response.read().decode("utf-8"))
-        return [{"code": item["code"], "name": item["name"]} for item in languages if item.get("code") and item.get("name")]
-    except Exception:
-        return [
-            {"code": "en", "name": "English"}, {"code": "sn", "name": "Shona"},
-            {"code": "nr", "name": "Ndebele"}, {"code": "zu", "name": "isiZulu"},
-            {"code": "xh", "name": "isiXhosa"}, {"code": "fr", "name": "French"},
-            {"code": "pt", "name": "Portuguese"}, {"code": "sw", "name": "Swahili"},
-        ]
-
 KNOWN_USERS = {
     "icetrex": "icetrex@aviator.app",
     "austin": "austin@aviator.app",
@@ -140,7 +98,6 @@ if "user" not in st.session_state: st.session_state["user"] = ""
 if "user_email" not in st.session_state: st.session_state["user_email"] = ""
 if "user_id" not in st.session_state: st.session_state["user_id"] = ""
 if "pending_signup" not in st.session_state: st.session_state["pending_signup"] = {}
-if "translation_cache" not in st.session_state: st.session_state["translation_cache"] = {}
 if "refresh_after_round" not in st.session_state: st.session_state["refresh_after_round"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
@@ -958,40 +915,21 @@ def show_dashboard():
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-label">04 / PREDICTOR COMMUNITY CHAT</div>', unsafe_allow_html=True)
-    st.markdown('<div class="feed-note">Chat with other signed-in members. Choose a language and translate individual messages. Message text is sent to the configured translation service only when you press Translate.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="feed-note">Chat with other signed-in members in the shared predictor room.</div>', unsafe_allow_html=True)
 
     @st.fragment(run_every="4s")
     def community_chat():
-        base_url = _get_config_value("LIBRETRANSLATE_URL") or "https://libretranslate.com"
-        api_key = _get_config_value("LIBRETRANSLATE_API_KEY")
-        languages = get_translation_languages(base_url, api_key)
-        language_map = {item["name"]: item["code"] for item in languages}
-        language_names = list(language_map) or ["English"]
-        selected_language = st.selectbox("TRANSLATE MESSAGES TO", language_names, key="chat_target_language")
-        target_code = language_map.get(selected_language, "en")
-
         try:
             messages = fetch_community_messages()
         except Exception:
             st.warning("Community chat needs its Supabase table. Apply the community-chat migration from this repository in Supabase SQL Editor.")
             messages = []
 
-        translation_cache = st.session_state["translation_cache"]
         for item in messages:
             mine = item["user_id"] == st.session_state.get("user_id")
             with st.chat_message("user" if mine else "assistant"):
                 st.caption(item.get("username") or "Member")
                 st.write(item.get("message", ""))
-                cache_key = f"{item['id']}:{target_code}"
-                if cache_key in translation_cache:
-                    st.caption(f"{selected_language}: {translation_cache[cache_key]}")
-                if st.button(f"Translate to {selected_language}", key=f"translate_{item['id']}_{target_code}"):
-                    try:
-                        with st.spinner("Translating…"):
-                            translation_cache[cache_key] = translate_chat_text(item.get("message", ""), target_code)
-                        st.rerun(scope="fragment")
-                    except Exception:
-                        st.error("Translation failed. Configure a LibreTranslate-compatible URL and API key in Streamlit Secrets.")
 
         new_message = st.chat_input("Message the predictor community…", max_chars=1000, key="community_chat_input")
         if new_message and new_message.strip():
