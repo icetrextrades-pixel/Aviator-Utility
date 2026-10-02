@@ -3,7 +3,11 @@ import streamlit.components.v1 as components
 import numpy as np
 import math
 import os
+import re
+import json
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 import pytz
 from supabase import create_client, Client
@@ -67,6 +71,63 @@ supabase: Client = st.session_state["supabase_client"]
 
 ADMIN_EMAIL = "icetrextrades@gmail.com"
 ADMIN_WHATSAPP = "+263779174062"
+ADMIN_DISPLAY_PHONE = "0779 174 062"
+
+
+def normalize_phone_number(value: str) -> str:
+    """Convert Zimbabwe local mobile numbers to E.164; preserve other international codes."""
+    cleaned = re.sub(r"[^0-9+]", "", value.strip())
+    if cleaned.startswith("00"):
+        cleaned = "+" + cleaned[2:]
+    elif cleaned.startswith("0"):
+        cleaned = "+263" + cleaned[1:]
+    elif cleaned.startswith("263"):
+        cleaned = "+" + cleaned
+    elif not cleaned.startswith("+"):
+        cleaned = "+" + cleaned
+    if not re.fullmatch(r"\+[1-9]\d{7,14}", cleaned):
+        raise ValueError("Enter a valid international phone number, for example +263 77 123 4567.")
+    return cleaned
+
+
+def translate_chat_text(message: str, target_code: str) -> str:
+    """Translate one message via the configured LibreTranslate-compatible API."""
+    base_url = _get_config_value("LIBRETRANSLATE_URL") or "https://libretranslate.com"
+    api_key = _get_config_value("LIBRETRANSLATE_API_KEY")
+    payload = {"q": message, "source": "auto", "target": target_code, "format": "text"}
+    if api_key:
+        payload["api_key"] = api_key
+    request = urllib.request.Request(
+        base_url.rstrip("/") + "/translate",
+        data=urllib.parse.urlencode(payload).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    translated = result.get("translatedText")
+    if not translated:
+        raise ValueError("Translation service returned no translated text.")
+    return translated
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_translation_languages(base_url: str, api_key: str) -> list:
+    """Read supported languages from the configured translation service."""
+    url = base_url.rstrip("/") + "/languages"
+    if api_key:
+        url += "?" + urllib.parse.urlencode({"api_key": api_key})
+    try:
+        with urllib.request.urlopen(url, timeout=8) as response:
+            languages = json.loads(response.read().decode("utf-8"))
+        return [{"code": item["code"], "name": item["name"]} for item in languages if item.get("code") and item.get("name")]
+    except Exception:
+        return [
+            {"code": "en", "name": "English"}, {"code": "sn", "name": "Shona"},
+            {"code": "nr", "name": "Ndebele"}, {"code": "zu", "name": "isiZulu"},
+            {"code": "xh", "name": "isiXhosa"}, {"code": "fr", "name": "French"},
+            {"code": "pt", "name": "Portuguese"}, {"code": "sw", "name": "Swahili"},
+        ]
 
 KNOWN_USERS = {
     "icetrex": "icetrex@aviator.app",
@@ -77,6 +138,10 @@ KNOWN_USERS = {
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "user" not in st.session_state: st.session_state["user"] = ""
 if "user_email" not in st.session_state: st.session_state["user_email"] = ""
+if "user_id" not in st.session_state: st.session_state["user_id"] = ""
+if "pending_signup" not in st.session_state: st.session_state["pending_signup"] = {}
+if "translation_cache" not in st.session_state: st.session_state["translation_cache"] = {}
+if "refresh_after_round" not in st.session_state: st.session_state["refresh_after_round"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
 if "auth_mode" not in st.session_state: st.session_state["auth_mode"] = "login"
@@ -141,15 +206,33 @@ def fetch_live_history(casino_name: str, limit: int = 50) -> list:
         pass
     return ["1.50x", "2.10x", "1.15x", "1.80x", "1.30x", "2.50x", "1.10x", "1.60x", "3.20x", "1.05x"]
 
-def insert_round_result(casino_name: str, multiplier: float) -> bool:
+def insert_round_result(casino_name: str, multiplier: float, strategy: str) -> bool:
     try:
         supabase.table("round_history") \
             .insert({"casino": casino_name, "multiplier": multiplier}) \
             .execute()
-        resolve_pending_signals(casino_name, multiplier)
+        resolve_pending_signals(casino_name, multiplier, strategy)
         return True
     except Exception:
         return False
+
+
+def get_latest_round_timestamp(casino_name: str) -> float:
+    """Return the current user's most recent logged round time for this casino."""
+    try:
+        resp = supabase.table("round_history") \
+            .select("created_at") \
+            .eq("casino", casino_name) \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute()
+        if resp.data:
+            value = resp.data[0].get("created_at")
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        pass
+    return 0.0
+
 
 def get_round_count(casino_name: str) -> int:
     try:
@@ -173,12 +256,13 @@ def save_prediction(casino_name: str, strategy: str, predicted: float):
     except Exception:
         pass
 
-def resolve_pending_signals(casino_name: str, actual: float):
-    """Mark the oldest unresolved prediction for this casino as hit or miss."""
+def resolve_pending_signals(casino_name: str, actual: float, strategy: str):
+    """Resolve the oldest outstanding prediction for the casino and mode just logged."""
     try:
         resp = supabase.table("signal_history") \
             .select("id, predicted_multiplier") \
             .eq("casino", casino_name) \
+            .eq("strategy", strategy) \
             .is_("resolved_at", "null") \
             .order("created_at", desc=False) \
             .limit(1) \
@@ -196,6 +280,7 @@ def resolve_pending_signals(casino_name: str, actual: float):
                 .execute()
     except Exception:
         pass
+
 
 def get_accuracy_stats(casino_name: str, strategy: str) -> dict:
     """Return hit rate stats for a given casino + strategy."""
@@ -225,6 +310,25 @@ def get_recent_signals(casino_name: str, strategy: str, limit: int = 3) -> list:
         return resp.data if resp.data else []
     except Exception:
         return []
+
+def fetch_community_messages(limit: int = 60) -> list:
+    """Read the newest community messages visible to signed-in users."""
+    response = supabase.table("community_chat_messages") \
+        .select("id, user_id, username, message, created_at") \
+        .order("created_at", desc=True) \
+        .limit(limit) \
+        .execute()
+    return list(reversed(response.data or []))
+
+
+def send_community_message(message: str) -> None:
+    username = (st.session_state.get("user") or "member")[:40]
+    supabase.table("community_chat_messages").insert({
+        "user_id": st.session_state["user_id"],
+        "username": username,
+        "message": message.strip()[:1000],
+    }).execute()
+
 
 # ==============================================================================
 # 4. STOCHASTIC MATH ENGINE
@@ -419,7 +523,7 @@ DASHBOARD_CSS = """
 # 6. SIGNAL CARD RENDERER
 # ==============================================================================
 def render_signal_card(active_mode: str, signal_value: float, confidence: float,
-                       recent_signals: list, accuracy: dict, generated_at: float = 0.0):
+                       recent_signals: list, accuracy: dict, generated_at: float = 0.0, last_round_at: float = 0.0):
     strat = STRATEGIES[active_mode]
     accent = strat["accent_color"]
     mode_tag = {"PREDICTOR": "01 / LOW-VARIANCE LAB", "AVI10": "10 / NEURAL CORE", "MR CRUSHER": "X / HIGH-IMPACT ENGINE"}[active_mode]
@@ -430,8 +534,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
     total = accuracy["total"]
     rate = accuracy["rate"]
     signal_age = max(0, time.time() - generated_at) if generated_at else 0
-    window_seconds = 60
-    initial_remaining = max(0, window_seconds - int(signal_age)) if generated_at else 0
+    initial_elapsed = max(0, int(time.time() - last_round_at)) if last_round_at else -1
     signal_state = "SIGNAL LOCKED" if generated_at else "AWAITING GENERATION"
     accuracy_color = "#4ade80" if rate >= 60 else ("#fbbf24" if rate >= 40 else "#fb7185")
 
@@ -490,7 +593,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       .telemetry-value {{ color:#f1f5f9; font:900 21px ui-monospace,monospace; margin-top:6px; }}
       .telemetry-value em {{ color:var(--accent); font-style:normal; font-size:11px; }}
       .window-track {{ margin-top:8px; height:3px; background:#182333; overflow:hidden; }}
-      .window-fill {{ height:100%; width:100%; background:var(--accent); box-shadow:0 0 10px var(--accent); transform-origin:left; transform:scaleX({initial_remaining / 60:.3f}); transition:transform .95s linear; }}
+      .sync-fill {{ height:100%; width:34%; background:var(--accent); box-shadow:0 0 10px var(--accent); animation:sync-pulse 2.2s ease-in-out infinite alternate; }}
       .history-head {{ display:flex; justify-content:space-between; align-items:center; margin:6px 0 8px; color:#8190a3; font:800 9px ui-monospace,monospace; letter-spacing:1.3px; }}
       .history-row {{ display:flex; gap:7px; }}
       .mini-signal {{ flex:1; text-align:center; padding:9px 5px; border:1px solid color-mix(in srgb,var(--row-color) 30%,transparent); background:rgba(6,12,20,.8); color:var(--row-color); font:800 10px ui-monospace,monospace; }}
@@ -501,6 +604,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       @keyframes orbit {{ 0% {{ transform:rotate(-90deg) scale(.92); opacity:.45; }} 68% {{ transform:rotate(1040deg) scale(1.04); opacity:1; }} 100% {{ transform:rotate(1080deg) scale(1); opacity:1; }} }}
       @keyframes reverse-orbit {{ to {{ transform:rotate(-360deg); }} }}
       @keyframes core-in {{ from {{ transform:scale(.84); filter:blur(4px); opacity:.4; }} to {{ transform:scale(1); filter:blur(0); opacity:1; }} }}
+      @keyframes sync-pulse {{ from {{ transform:translateX(-10%); opacity:.45; }} to {{ transform:translateX(190%); opacity:1; }} }}
       @media (max-width:560px) {{ .instrument {{ padding:18px 15px; }} .instrument-body {{ grid-template-columns:1fr; }} .dial-wrap {{ width:240px;height:240px; }} .telemetry {{ grid-template-columns:1fr 1fr; }} .telemetry-box:first-child {{ grid-column:1 / -1; }} }}
     </style>
     <div class="instrument {skin_class}">
@@ -512,13 +616,13 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
         <div class="dial-wrap">
           <div class="dial-glow"></div><div class="dial-track"></div><div class="dial-orbit {"spin-up" if generated_at and signal_age < 4 else ""}"></div><div class="dial-inner"></div>
           <div class="dial-core"><div class="dial-kicker">POTENTIAL TARGET</div><div class="dial-value">{display_target}</div><div class="dial-label">MULTIPLIER</div></div>
-          <div class="dial-stat left">NEURAL SIGNAL</div><div class="dial-stat right">EST. WINDOW</div>
+          <div class="dial-stat left">NEURAL SIGNAL</div><div class="dial-stat right">ROUND SYNC</div>
         </div>
         <div class="telemetry">
           <div class="telemetry-box">
-            <div class="telemetry-label">NEXT SIGNAL WINDOW</div>
-            <div class="telemetry-value"><span id="countdown">{initial_remaining:02d}</span><em> SEC</em></div>
-            <div class="window-track"><div class="window-fill" id="window-fill"></div></div>
+            <div class="telemetry-label">TIME SINCE LAST RESULT</div>
+            <div class="telemetry-value"><span id="round-age">{"—" if initial_elapsed < 0 else f"{initial_elapsed:02d}"}</span><em> SEC</em></div>
+            <div class="window-track"><div class="sync-fill"></div></div>
           </div>
           <div class="telemetry-box"><div class="telemetry-label">MODEL CONFIDENCE</div><div class="telemetry-value">{confidence_text}<em> / SAMPLE</em></div></div>
           <div class="telemetry-box"><div class="telemetry-label">HISTORY ACCURACY</div><div class="telemetry-value" style="color:{accuracy_color}">{rate}% <em>{hits}/{total} RESOLVED</em></div></div>
@@ -526,20 +630,18 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       </div>
       <div class="history-head"><span>RECENT SIGNAL CHECKS</span><span>TRIPLE TRACE</span></div>
       <div class="history-row">{''.join(recent)}</div>
-      <div class="instrument-foot"><span>STATE: <strong id="signal-state">{signal_state}</strong></span><span>LOCAL ROUND FEED &nbsp;•&nbsp; NOT AN OPERATOR FEED</span></div>
+      <div class="instrument-foot"><span>STATE: <strong id="signal-state">{signal_state}</strong></span><span>EVENT-DRIVEN ROUND SYNC &nbsp;•&nbsp; NO FIXED TIMER</span></div>
     </div>
     <script>
-      let seconds = {initial_remaining};
-      const timer = document.getElementById("countdown");
+      let elapsed = {initial_elapsed};
+      const age = document.getElementById("round-age");
       const state = document.getElementById("signal-state");
-      const fill = document.getElementById("window-fill");
-      if (seconds <= 0) {{ if (timer) timer.textContent = "—"; if (state) state.textContent = "GENERATE SIGNAL TO START"; if (fill) fill.style.width = "0%"; }}
-      else {{
+      if (elapsed < 0) {{
+        if (state) state.textContent = "WAITING FOR FIRST RESULT";
+      }} else {{
         const tick = setInterval(() => {{
-          seconds = Math.max(0, seconds - 1);
-          if (timer) timer.textContent = String(seconds).padStart(2, "0");
-          if (fill) fill.style.transform = "scaleX(" + (seconds / 60) + ")";
-          if (seconds === 0) {{ if (state) state.textContent = "WINDOW COMPLETE • READY"; clearInterval(tick); }}
+          elapsed += 1;
+          if (age) age.textContent = String(elapsed).padStart(2, "0");
         }}, 1000);
       }}
     </script>
@@ -566,93 +668,162 @@ def show_login():
 
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
-        if st.session_state["auth_mode"] == "login":
-            email_input = st.text_input("EMAIL ADDRESS", placeholder="ENTER EMAIL ADDRESS", label_visibility="collapsed")
+        mode = st.session_state["auth_mode"]
+        if mode == "login":
+            identifier = st.text_input("EMAIL OR VERIFIED PHONE", placeholder="EMAIL OR +263 77 123 4567", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
             if st.session_state["auth_notice"]:
                 st.info(st.session_state["auth_notice"])
                 st.session_state["auth_notice"] = ""
 
             if st.button("INITIALIZE NEURAL MATRIX"):
-                email = email_input.strip().lower()
-                pass_clean = password_input.strip()
-                # Keep the original administrator accounts usable by their old usernames.
-                if email in KNOWN_USERS:
-                    email = KNOWN_USERS[email]
-                if not email or not pass_clean:
-                    st.error("Please enter both your email address and password.")
-                    return
-                if "@" not in email:
-                    st.error("Sign in with the email address registered in Supabase. Usernames alone cannot authenticate with Supabase Auth.")
+                identity = identifier.strip()
+                password = password_input.strip()
+                if identity.lower() in KNOWN_USERS:
+                    identity = KNOWN_USERS[identity.lower()]
+                if not identity or not password:
+                    st.error("Enter your email or verified phone number and password.")
                     return
                 try:
-                    resp = supabase.auth.sign_in_with_password({"email": email, "password": pass_clean})
-                    if resp.user:
-                        metadata = resp.user.user_metadata or {}
-                        display_name = metadata.get("username") or email.split("@", 1)[0]
+                    payload = ({"email": identity.lower(), "password": password}
+                               if "@" in identity else
+                               {"phone": normalize_phone_number(identity), "password": password})
+                    response = supabase.auth.sign_in_with_password(payload)
+                    if response.user:
+                        metadata = response.user.user_metadata or {}
+                        display_name = metadata.get("username") or (response.user.email or identity).split("@", 1)[0]
                         st.session_state["pass"] = True
                         st.session_state["user"] = display_name
-                        st.session_state["user_email"] = resp.user.email or email
+                        st.session_state["user_email"] = response.user.email or metadata.get("contact_email", "")
+                        st.session_state["user_id"] = response.user.id
                         st.rerun()
                     else:
-                        st.error("Sign-in failed. Check your email, password, and whether your email has been confirmed.")
+                        st.error("Sign-in failed. Check your email or verified phone, password, and confirmation status.")
                 except Exception:
-                    st.error("Sign-in failed. Check your email, password, and whether your email has been confirmed.")
+                    st.error("Sign-in failed. Check your email or verified phone, password, and confirmation status.")
 
-            switch_col1, switch_col2 = st.columns(2)
-            with switch_col1:
-                if st.button("CREATE ACCOUNT", use_container_width=True):
-                    st.session_state["auth_mode"] = "signup"
-                    st.rerun()
-            with switch_col2:
-                st.info("Existing? Sign in above.", icon="ℹ️")
-        else:
+            if st.button("CREATE ACCOUNT", use_container_width=True):
+                st.session_state["auth_mode"] = "signup"
+                st.rerun()
+
+        elif mode == "signup":
             new_user = st.text_input("NEW USERNAME", placeholder="CHOOSE A USERNAME", label_visibility="collapsed")
             new_email = st.text_input("EMAIL", placeholder="ENTER YOUR EMAIL", label_visibility="collapsed")
+            new_phone = st.text_input("PHONE NUMBER", placeholder="+263 77 123 4567", label_visibility="collapsed")
+            channel_label = st.selectbox("VERIFICATION CHANNEL", ["SMS", "WhatsApp"], key="signup_channel")
             new_pass = st.text_input("NEW PASSWORD", type="password", placeholder="CHOOSE A PASSWORD", label_visibility="collapsed")
             confirm_pass = st.text_input("CONFIRM PASSWORD", type="password", placeholder="CONFIRM PASSWORD", label_visibility="collapsed")
+            st.caption("Phone verification must be enabled in Supabase. WhatsApp delivery requires Twilio or Twilio Verify.")
 
-            if st.button("CREATE ACCOUNT"):
-                user_clean = new_user.strip().lower()
-                email_clean = new_email.strip()
-                pass_clean = new_pass.strip()
-                confirm_clean = confirm_pass.strip()
-                if not user_clean or not email_clean or not pass_clean:
-                    st.error("All fields are required.")
-                    return
-                if pass_clean != confirm_clean:
+            if st.button("SEND VERIFICATION CODE", type="primary"):
+                username = new_user.strip().lower()
+                email = new_email.strip().lower()
+                password = new_pass.strip()
+                if not username or not email or not new_phone.strip() or not password:
+                    st.error("Complete every field before requesting a code.")
+                elif "@" not in email:
+                    st.error("Enter a valid email address.")
+                elif password != confirm_pass.strip():
                     st.error("Passwords do not match.")
-                    return
-                if "@" not in email_clean:
-                    st.error("Please enter a valid email address.")
-                    return
-                try:
-                    resp = supabase.auth.sign_up({
-                        "email": email_clean,
-                        "password": pass_clean,
-                        "options": {"data": {"username": user_clean}},
-                    })
-                    if resp.user:
-                        st.session_state["auth_notice"] = (
-                            f"Account created for {email_clean}. Sign in with this email and your password. "
-                            "If email confirmation is enabled in Supabase, confirm the message sent to your inbox first."
-                        )
-                        st.session_state["auth_mode"] = "login"
-                        st.rerun()
-                    else:
-                        st.error("Could not create account. Please try again.")
-                except Exception as e:
-                    err_msg = str(e)
-                    if "already" in err_msg.lower() or "registered" in err_msg.lower():
-                        st.error("An account with this email already exists.")
-                    else:
-                        st.error("Sign-up failed: please try again.")
+                else:
+                    try:
+                        phone = normalize_phone_number(new_phone)
+                        channel = "whatsapp" if channel_label == "WhatsApp" else "sms"
+                        response = supabase.auth.sign_up({
+                            "phone": phone,
+                            "password": password,
+                            "options": {
+                                "channel": channel,
+                                "data": {"username": username, "contact_email": email},
+                            },
+                        })
+                        if response.user:
+                            st.session_state["pending_signup"] = {
+                                "phone": phone, "username": username, "email": email,
+                                "password": password, "channel": channel,
+                            }
+                            st.session_state["auth_mode"] = "verify_phone"
+                            st.rerun()
+                        else:
+                            st.error("Supabase did not start phone verification. Check the phone provider configuration.")
+                    except Exception as exc:
+                        if "already" in str(exc).lower() or "registered" in str(exc).lower():
+                            st.error("That phone number is already registered. Sign in with it or contact support.")
+                        elif "provider" in str(exc).lower() or "sms" in str(exc).lower() or "whatsapp" in str(exc).lower():
+                            st.error("Phone delivery is not configured for that channel in Supabase yet.")
+                        else:
+                            st.error("Could not send a verification code. Check the number and Supabase phone provider settings.")
 
             if st.button("BACK TO LOGIN", use_container_width=True):
                 st.session_state["auth_mode"] = "login"
                 st.rerun()
 
-    st.markdown(f'<p class="footer-text">AUTHORIZED ACCESS ONLY • CONTACT: {ADMIN_EMAIL}</p>', unsafe_allow_html=True)
+        else:
+            pending = st.session_state.get("pending_signup", {})
+            if not pending:
+                st.error("Your verification session expired. Start account creation again.")
+                if st.button("BACK TO ACCOUNT CREATION"):
+                    st.session_state["auth_mode"] = "signup"
+                    st.rerun()
+            else:
+                channel_name = "WhatsApp" if pending.get("channel") == "whatsapp" else "SMS"
+                st.markdown(f"### Verify your {channel_name} number")
+                st.caption(f"Enter the code sent to {pending['phone']}.")
+                otp_code = st.text_input("VERIFICATION CODE", max_chars=8, placeholder="ENTER CODE", label_visibility="collapsed")
+                if st.button("VERIFY & FINISH ACCOUNT", type="primary"):
+                    if not otp_code.strip():
+                        st.error("Enter the verification code.")
+                    else:
+                        try:
+                            verified = supabase.auth.verify_otp({
+                                "phone": pending["phone"],
+                                "token": otp_code.strip(),
+                                "type": "sms",
+                            })
+                            if not verified.user:
+                                st.error("The code could not be verified. Check it and try again.")
+                            else:
+                                metadata = {
+                                    "username": pending["username"],
+                                    "contact_email": pending["email"],
+                                    "phone_verified": True,
+                                }
+                                email_linked = True
+                                try:
+                                    supabase.auth.update_user({
+                                        "email": pending["email"],
+                                        "password": pending["password"],
+                                        "data": metadata,
+                                    })
+                                except Exception:
+                                    email_linked = False
+                                    supabase.auth.update_user({
+                                        "password": pending["password"],
+                                        "data": metadata,
+                                    })
+                                try:
+                                    supabase.auth.sign_out()
+                                except Exception:
+                                    pass
+                                st.session_state["pending_signup"] = {}
+                                st.session_state["auth_mode"] = "login"
+                                if email_linked:
+                                    st.session_state["auth_notice"] = "Phone verified. Sign in with your verified phone number and password. Check your email for confirmation if Supabase requires it."
+                                else:
+                                    st.session_state["auth_notice"] = "Phone verified and account created. Sign in with your phone number and password; email is saved as contact information because it could not be linked."
+                                st.rerun()
+                        except Exception:
+                            st.error("Verification failed. Check the code and try again.")
+
+                if st.button("CANCEL / BACK TO CREATE ACCOUNT"):
+                    st.session_state["pending_signup"] = {}
+                    st.session_state["auth_mode"] = "signup"
+                    st.rerun()
+
+    st.markdown(
+        f'<div class="footer-text">NEED HELP? <a href="https://wa.me/263779174062">WhatsApp {ADMIN_DISPLAY_PHONE}</a> &nbsp;•&nbsp; <a href="tel:{ADMIN_WHATSAPP}">CALL {ADMIN_DISPLAY_PHONE}</a></div>',
+        unsafe_allow_html=True,
+    )
 
 def show_dashboard():
     active_tab = st.session_state["active_tab"]
@@ -720,8 +891,18 @@ def show_dashboard():
     live_history = fetch_live_history(selected_casino)
     mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual = execute_neural_math(live_history)
 
+    # A submitted result is the synchronization event, even when it is 1.00x.
+    if st.session_state.get("refresh_after_round"):
+        signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
+        st.session_state["current_signal"] = signal
+        st.session_state["signal_generated_at"] = time.time()
+        st.session_state["signal_casino"] = selected_casino
+        st.session_state["signal_mode"] = active_tab
+        st.session_state["refresh_after_round"] = False
+        save_prediction(selected_casino, active_tab, signal)
+
     st.markdown('<div class="section-label">02 / LIVE SIGNAL INSTRUMENT</div>', unsafe_allow_html=True)
-    gen_col, loop_col, band_col = st.columns([2.3, 1.6, 1.3])
+    gen_col, band_col = st.columns([2.3, 1.3])
     with gen_col:
         if st.button("GENERATE NEW SIGNAL  ⟲", use_container_width=True, type="primary", key="generate_signal"):
             signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
@@ -731,8 +912,6 @@ def show_dashboard():
             st.session_state["signal_mode"] = active_tab
             save_prediction(selected_casino, active_tab, signal)
             st.rerun()
-    with loop_col:
-        st.toggle("AUTO SIGNAL LOOP", key="auto_signal", help="When enabled, the instrument generates another estimate every 60 seconds. It does not read or predict a casino's actual next result.")
     with band_col:
         st.metric("TARGET BAND", f"{strat['min_target']:.1f}–{strat['max_target']:.1f}x")
 
@@ -744,25 +923,14 @@ def show_dashboard():
         current_signal = None
     if current_signal is None:
         st.info("Signal core is idle. Choose a casino, then generate a signal. Enter actual round results below to update the selected casino's Supabase history.")
-        render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy)
+        render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy, last_round_at=get_latest_round_timestamp(selected_casino))
     else:
-        render_signal_card(active_tab, current_signal, confidence, recent_signals, accuracy, st.session_state.get("signal_generated_at", 0.0))
-
-    if st.session_state.get("auto_signal") and current_signal is not None:
-        @st.fragment(run_every="1s")
-        def auto_signal_countdown():
-            generated = st.session_state.get("signal_generated_at", 0.0)
-            remaining = max(0, 60 - int(time.time() - generated))
-            st.caption(f"AUTO SIGNAL LOOP  •  next estimate in {remaining:02d}s  •  based on stored rounds, not a live casino feed")
-            if remaining <= 0:
-                next_signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
-                st.session_state["current_signal"] = next_signal
-                st.session_state["signal_generated_at"] = time.time()
-                st.session_state["signal_casino"] = selected_casino
-                st.session_state["signal_mode"] = active_tab
-                save_prediction(selected_casino, active_tab, next_signal)
-                st.rerun()
-        auto_signal_countdown()
+        render_signal_card(
+            active_tab, current_signal, confidence, recent_signals, accuracy,
+            st.session_state.get("signal_generated_at", 0.0),
+            get_latest_round_timestamp(selected_casino),
+        )
+    st.caption("Round sync is event-driven: every submitted result, including 1.00x, resolves the previous signal and immediately generates the next estimate.")
 
     st.markdown('<div class="section-label">03 / ROUND DATA & ACCURACY</div>', unsafe_allow_html=True)
     round_col, submit_col, stats_col = st.columns([1.5, 1, 2])
@@ -771,8 +939,9 @@ def show_dashboard():
     with submit_col:
         st.write("")
         if st.button("LOG ROUND RESULT", use_container_width=True, key="log_round"):
-            if insert_round_result(selected_casino, float(round_multiplier)):
-                st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}. Its stored history will be used on the next run.")
+            if insert_round_result(selected_casino, float(round_multiplier), active_tab):
+                st.session_state["refresh_after_round"] = True
+                st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}; refreshing from the updated history.")
                 st.rerun()
             else:
                 st.error("Could not log this result to Supabase. Check the database table and row-level security policies.")
@@ -787,6 +956,52 @@ def show_dashboard():
       Estimates are stochastic summaries of entered data; they are not guaranteed outcomes.
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown('<div class="section-label">04 / PREDICTOR COMMUNITY CHAT</div>', unsafe_allow_html=True)
+    st.markdown('<div class="feed-note">Chat with other signed-in members. Choose a language and translate individual messages. Message text is sent to the configured translation service only when you press Translate.</div>', unsafe_allow_html=True)
+
+    @st.fragment(run_every="4s")
+    def community_chat():
+        base_url = _get_config_value("LIBRETRANSLATE_URL") or "https://libretranslate.com"
+        api_key = _get_config_value("LIBRETRANSLATE_API_KEY")
+        languages = get_translation_languages(base_url, api_key)
+        language_map = {item["name"]: item["code"] for item in languages}
+        language_names = list(language_map) or ["English"]
+        selected_language = st.selectbox("TRANSLATE MESSAGES TO", language_names, key="chat_target_language")
+        target_code = language_map.get(selected_language, "en")
+
+        try:
+            messages = fetch_community_messages()
+        except Exception:
+            st.warning("Community chat needs its Supabase table. Apply the community-chat migration from this repository in Supabase SQL Editor.")
+            messages = []
+
+        translation_cache = st.session_state["translation_cache"]
+        for item in messages:
+            mine = item["user_id"] == st.session_state.get("user_id")
+            with st.chat_message("user" if mine else "assistant"):
+                st.caption(item.get("username") or "Member")
+                st.write(item.get("message", ""))
+                cache_key = f"{item['id']}:{target_code}"
+                if cache_key in translation_cache:
+                    st.caption(f"{selected_language}: {translation_cache[cache_key]}")
+                if st.button(f"Translate to {selected_language}", key=f"translate_{item['id']}_{target_code}"):
+                    try:
+                        with st.spinner("Translating…"):
+                            translation_cache[cache_key] = translate_chat_text(item.get("message", ""), target_code)
+                        st.rerun(scope="fragment")
+                    except Exception:
+                        st.error("Translation failed. Configure a LibreTranslate-compatible URL and API key in Streamlit Secrets.")
+
+        new_message = st.chat_input("Message the predictor community…", max_chars=1000, key="community_chat_input")
+        if new_message and new_message.strip():
+            try:
+                send_community_message(new_message)
+                st.rerun(scope="fragment")
+            except Exception:
+                st.error("Could not send the message. Check that the chat migration has been applied and your Supabase session is active.")
+
+    community_chat()
 
     st.markdown('<div class="footer-line">AVI10 NEURAL MATRIX &nbsp;•&nbsp; EDGE SYSTEMS / SESSION ACTIVE</div>', unsafe_allow_html=True)
 
