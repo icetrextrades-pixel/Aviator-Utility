@@ -423,6 +423,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
     strat = STRATEGIES[active_mode]
     accent = strat["accent_color"]
     mode_tag = {"PREDICTOR": "01 / LOW-VARIANCE LAB", "AVI10": "10 / NEURAL CORE", "MR CRUSHER": "X / HIGH-IMPACT ENGINE"}[active_mode]
+    skin_class = {"PREDICTOR": "skin-predictor", "AVI10": "skin-avi10", "MR CRUSHER": "skin-crusher"}[active_mode]
     display_target = f"{signal_value:.2f}X" if signal_value else "— —"
     confidence_text = f"{int(confidence)}%" if confidence else "—"
     hits = accuracy["hits"]
@@ -436,8 +437,11 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
 
     recent = []
     for row in recent_signals[:3]:
-        status = "HIT" if row.get("hit") else "MISS"
-        row_color = "#4ade80" if row.get("hit") else "#fb7185"
+        if row.get("hit") is None:
+            status, row_color = "OPEN", accent
+        else:
+            status = "HIT" if row.get("hit") else "MISS"
+            row_color = "#4ade80" if row.get("hit") else "#fb7185"
         recent.append(f'<span class="mini-signal" style="--row-color:{row_color}">{row["predicted_multiplier"]:.2f}x <b>{status}</b></span>')
     while len(recent) < 3:
         recent.append('<span class="mini-signal muted">NO DATA</span>')
@@ -448,6 +452,13 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       .instrument {{ --accent:{accent}; color:#eff6ff; position:relative; overflow:hidden; max-width:760px; margin:8px auto 16px; padding:25px 26px 20px; border:1px solid color-mix(in srgb,var(--accent) 55%,#263449); border-top:3px solid var(--accent); background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 54%),linear-gradient(145deg,rgba(10,18,30,.98),rgba(4,8,15,.98)); box-shadow:0 22px 70px rgba(0,0,0,.55),0 0 35px color-mix(in srgb,var(--accent) 12%,transparent); font-family:Inter,Arial,sans-serif; clip-path:polygon(0 0,97% 0,100% 4%,100% 100%,3% 100%,0 96%); }}
       .instrument:before {{ content:""; position:absolute; inset:0; pointer-events:none; opacity:.12; background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(255,255,255,.08) 5px); }}
       .instrument:after {{ content:""; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent),transparent); }}
+      .instrument.skin-predictor {{ background:radial-gradient(ellipse at 50% 0%,rgba(59,130,246,.18),transparent 58%),linear-gradient(145deg,rgba(8,17,34,.98),rgba(4,8,15,.98)); }}
+      .instrument.skin-predictor .dial-track {{ background:repeating-conic-gradient(from 0deg,rgba(59,130,246,.12) 0 1deg,transparent 1deg 12deg); }}
+      .instrument.skin-avi10 {{ background:radial-gradient(ellipse at 50% 0%,rgba(16,185,129,.18),transparent 58%),linear-gradient(145deg,rgba(7,24,23,.98),rgba(4,8,15,.98)); }}
+      .instrument.skin-avi10 .dial-orbit {{ border-top-color:#6ee7b7; border-right-color:rgba(16,185,129,.5); }}
+      .instrument.skin-crusher {{ background:repeating-linear-gradient(135deg,rgba(239,68,68,.045) 0 2px,transparent 2px 11px),radial-gradient(ellipse at 50% 0%,rgba(239,68,68,.2),transparent 58%),linear-gradient(145deg,rgba(31,9,14,.98),rgba(8,7,13,.98)); }}
+      .instrument.skin-crusher .dial-orbit {{ animation-duration:1.8s; border-width:4px; }}
+      .instrument.skin-crusher .dial-value {{ text-shadow:0 0 26px rgba(239,68,68,.55); }}
       .instrument-head,.instrument-body,.instrument-foot {{ position:relative; z-index:1; }}
       .instrument-head {{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; border-bottom:1px solid rgba(148,163,184,.15); padding-bottom:16px; }}
       .instrument-title {{ margin:0; font-size:clamp(17px,3vw,22px); font-weight:950; font-style:italic; letter-spacing:1px; }}
@@ -491,7 +502,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       @keyframes drain {{ from {{ transform:scaleX(1); }} to {{ transform:scaleX(0); }} }}
       @media (max-width:560px) {{ .instrument {{ padding:18px 15px; }} .instrument-body {{ grid-template-columns:1fr; }} .dial-wrap {{ width:240px;height:240px; }} .telemetry {{ grid-template-columns:1fr 1fr; }} .telemetry-box:first-child {{ grid-column:1 / -1; }} }}
     </style>
-    <div class="instrument">
+    <div class="instrument {skin_class}">
       <div class="instrument-head">
         <div><p class="instrument-title">{active_mode} / SIGNAL CORE</p><div class="instrument-sub">{mode_tag} &nbsp;•&nbsp; {strat["tagline"]}</div></div>
         <div class="live-chip"><i></i>ENGINE READY</div>
@@ -700,7 +711,7 @@ def show_dashboard():
     with sync_col:
         round_count = get_round_count(selected_casino)
         st.markdown(f"""
-        <div class="feed-note"><b style="color:{accent}">SUPABASE ROUND LOG</b><br>{round_count} results stored for {selected_casino}. Select a casino to switch its history and signal model.</div>
+        <div class="feed-note"><b style="color:{accent}">SUPABASE ROUND LOG</b><br>{round_count} results stored for {selected_casino}. {("Saved history active" if round_count else "Baseline data active · log the first round")} . Select a casino to switch its history and signal model.</div>
         """, unsafe_allow_html=True)
 
     live_history = fetch_live_history(selected_casino)
