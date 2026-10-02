@@ -2,74 +2,81 @@ import streamlit as st
 import numpy as np
 import math
 import time
+import os
 from datetime import datetime
 import pytz
-import sqlite3
+from supabase import create_client, Client
 
 # ==============================================================================
-# 1. AUTHENTICATION & DATABASE SYSTEM
+# 1. SUPABASE CLIENT & AUTH CONFIG
 # ==============================================================================
-# Add or remove member credentials here:
-MEMBERS_DB = {
-    "Icetrex": "sopito6002",
-    "austin": "tinofa111",
-    "biko": "taku333",
-    # "username": "password"
-}
+SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
+
+@st.cache_resource
+def get_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase = get_supabase()
 
 ADMIN_EMAIL = "icetrextrades@gmail.com"
-ADMIN_WHATSAPP = "+263779174062"  # Replace with your exact WhatsApp number
+ADMIN_WHATSAPP = "+263779174062"
 
-DB_NAME = "aviator_data.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS round_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            casino TEXT NOT NULL,
-            multiplier REAL NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cursor.execute("SELECT COUNT(*) FROM round_history")
-    if cursor.fetchone()[0] == 0:
-        sample_data = [
-            ("AFRICABET", 1.50), ("AFRICABET", 2.10), ("AFRICABET", 1.15),
-            ("1XBET", 3.20), ("1XBET", 1.05), ("PREMIER BET", 1.80)
-        ]
-        cursor.executemany("INSERT INTO round_history (casino, multiplier) VALUES (?, ?)", sample_data)
-        conn.commit()
-    conn.close()
-
-def fetch_live_history(casino_name: str, limit: int = 50) -> list:
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT multiplier FROM round_history WHERE casino = ? ORDER BY id DESC LIMIT ?",
-            (casino_name, limit)
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        if rows:
-            return [f"{row[0]:.2f}x" for row in rows]
-    except Exception as e:
-        st.error(f"Database error: {e}")
-    return ["1.50x", "2.10x", "1.15x", "1.80x", "1.30x", "2.50x", "1.10x", "1.60x", "3.20x", "1.05x"]
-
-init_db()
+# Existing member usernames mapped to their Supabase auth emails.
+# Their passwords are unchanged — stored securely in Supabase Auth.
+KNOWN_USERS = {
+    "icetrex": "icetrex@aviator.app",
+    "austin": "austin@aviator.app",
+    "biko": "biko@aviator.app",
+}
 
 if "pass" not in st.session_state: st.session_state["pass"] = False
 if "user" not in st.session_state: st.session_state["user"] = ""
+if "user_email" not in st.session_state: st.session_state["user_email"] = ""
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
+if "auth_mode" not in st.session_state: st.session_state["auth_mode"] = "login"
 
 st.set_page_config(page_title="AVI10 NEURAL MATRIX", layout="centered", initial_sidebar_state="collapsed")
 
 # ==============================================================================
-# 2. STOCHASTIC MATH ENGINE
+# 2. DATABASE FUNCTIONS (SUPABASE)
+# ==============================================================================
+def fetch_live_history(casino_name: str, limit: int = 50) -> list:
+    try:
+        resp = supabase.table("round_history") \
+            .select("multiplier") \
+            .eq("casino", casino_name) \
+            .order("created_at", desc=True) \
+            .limit(limit) \
+            .execute()
+        if resp.data:
+            return [f"{row['multiplier']:.2f}x" for row in resp.data]
+    except Exception:
+        pass
+    return ["1.50x", "2.10x", "1.15x", "1.80x", "1.30x", "2.50x", "1.10x", "1.60x", "3.20x", "1.05x"]
+
+def insert_round_result(casino_name: str, multiplier: float) -> bool:
+    try:
+        supabase.table("round_history") \
+            .insert({"casino": casino_name, "multiplier": multiplier}) \
+            .execute()
+        return True
+    except Exception:
+        return False
+
+def get_round_count(casino_name: str) -> int:
+    try:
+        resp = supabase.table("round_history") \
+            .select("id", count="exact") \
+            .eq("casino", casino_name) \
+            .execute()
+        return resp.count or 0
+    except Exception:
+        return 0
+
+# ==============================================================================
+# 3. STOCHASTIC MATH ENGINE
 # ==============================================================================
 
 def hill_estimator(arr: np.ndarray, k: int = None) -> float:
@@ -132,7 +139,7 @@ def execute_2030_neural_math(history_data):
         return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
 
 # ==============================================================================
-# 3. DYNAMIC MESSI CSS INJECTION (EXTERIOR & INTERIOR)
+# 4. DYNAMIC MESSI CSS INJECTION (EXTERIOR & INTERIOR)
 # ==============================================================================
 LOGIN_CSS = f"""
 <style>
@@ -211,7 +218,7 @@ DASHBOARD_CSS = f"""
 """
 
 # ==============================================================================
-# 4. DASHBOARD COMPONENT WITH APK & ADMIN BOXES
+# 5. DASHBOARD COMPONENT WITH APK & ADMIN BOXES
 # ==============================================================================
 def render_green_matrix_card(mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual, active_mode="AVI10"):
     cat_timezone = pytz.timezone('Africa/Harare')
@@ -366,7 +373,7 @@ def render_green_matrix_card(mu, sigma, momentum, tail_index, confidence, boost_
     st.components.v1.html(html_code, height=750)
 
 # ==============================================================================
-# 5. MASTER VIEWS & PORTAL COMPONENTS
+# 6. MASTER VIEWS & PORTAL COMPONENTS
 # ==============================================================================
 def show_login():
     st.markdown(LOGIN_CSS, unsafe_allow_html=True)
@@ -385,19 +392,92 @@ def show_login():
 
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
-        username_input = st.text_input("USERNAME", placeholder="ENTER USERNAME", label_visibility="collapsed")
-        password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
+        if st.session_state["auth_mode"] == "login":
+            username_input = st.text_input("USERNAME", placeholder="ENTER USERNAME", label_visibility="collapsed")
+            password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
 
-        if st.button("INITIALIZE NEURAL MATRIX"):
-            user_clean = username_input.strip()
-            pass_clean = password_input.strip()
+            if st.button("INITIALIZE NEURAL MATRIX"):
+                user_clean = username_input.strip().lower()
+                pass_clean = password_input.strip()
 
-            if user_clean in MEMBERS_DB and MEMBERS_DB[user_clean] == pass_clean:
-                st.session_state["pass"] = True
-                st.session_state["user"] = user_clean
+                if not user_clean or not pass_clean:
+                    st.error("Please enter both username and password.")
+                    return
+
+                # Map known usernames to their auth emails
+                if user_clean in KNOWN_USERS:
+                    email = KNOWN_USERS[user_clean]
+                elif "@" in user_clean:
+                    email = user_clean
+                else:
+                    email = f"{user_clean}@aviator.app"
+
+                try:
+                    resp = supabase.auth.sign_in_with_password({
+                        "email": email,
+                        "password": pass_clean
+                    })
+                    if resp.user:
+                        st.session_state["pass"] = True
+                        st.session_state["user"] = user_clean
+                        st.session_state["user_email"] = email
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+                except Exception:
+                    st.error("Invalid username or password.")
+
+            switch_col1, switch_col2 = st.columns(2)
+            with switch_col1:
+                if st.button("CREATE ACCOUNT", use_container_width=True):
+                    st.session_state["auth_mode"] = "signup"
+                    st.rerun()
+            with switch_col2:
+                st.info("Existing? Sign in above.", icon="ℹ️")
+        else:
+            # Sign-up mode
+            new_user = st.text_input("NEW USERNAME", placeholder="CHOOSE A USERNAME", label_visibility="collapsed")
+            new_email = st.text_input("EMAIL", placeholder="ENTER YOUR EMAIL", label_visibility="collapsed")
+            new_pass = st.text_input("NEW PASSWORD", type="password", placeholder="CHOOSE A PASSWORD", label_visibility="collapsed")
+            confirm_pass = st.text_input("CONFIRM PASSWORD", type="password", placeholder="CONFIRM PASSWORD", label_visibility="collapsed")
+
+            if st.button("CREATE ACCOUNT"):
+                user_clean = new_user.strip().lower()
+                email_clean = new_email.strip()
+                pass_clean = new_pass.strip()
+                confirm_clean = confirm_pass.strip()
+
+                if not user_clean or not email_clean or not pass_clean:
+                    st.error("All fields are required.")
+                    return
+                if pass_clean != confirm_clean:
+                    st.error("Passwords do not match.")
+                    return
+                if "@" not in email_clean:
+                    st.error("Please enter a valid email address.")
+                    return
+
+                try:
+                    resp = supabase.auth.sign_up({
+                        "email": email_clean,
+                        "password": pass_clean
+                    })
+                    if resp.user:
+                        st.success("Account created! You can now sign in.")
+                        st.session_state["auth_mode"] = "login"
+                        st.rerun()
+                    else:
+                        st.error("Could not create account. Please try again.")
+                except Exception as e:
+                    err_msg = str(e)
+                    if "already" in err_msg.lower() or "registered" in err_msg.lower():
+                        st.error("An account with this email already exists.")
+                    else:
+                        st.error(f"Sign-up failed: please try again.")
+
+            if st.button("BACK TO LOGIN", use_container_width=True):
+                st.session_state["auth_mode"] = "login"
                 st.rerun()
-            else:
-                st.error("Invalid Username or Password.")
 
     st.markdown(f'<p class="footer-text">AUTHORIZED ACCESS ONLY • CONTACT: {ADMIN_EMAIL}</p>', unsafe_allow_html=True)
 
@@ -441,15 +521,58 @@ def show_dashboard():
         st.session_state["casino"] = selected_casino
     with colB:
         if st.button("LOGOUT"):
+            try:
+                supabase.auth.sign_out()
+            except Exception:
+                pass
             st.session_state["pass"] = False
             st.session_state["user"] = ""
+            st.session_state["user_email"] = ""
             st.rerun()
 
     st.write("")
 
     live_history = fetch_live_history(st.session_state["casino"])
+    round_count = get_round_count(st.session_state["casino"])
     mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual = execute_2030_neural_math(live_history)
     render_green_matrix_card(mu, sigma, momentum, tail_index, confidence, boost_prob, recent_actual, active_mode=st.session_state["active_tab"])
+
+    # --------------------------------------------------------------------------
+    # ROUND INPUT SECTION — log actual round results to improve predictions
+    # --------------------------------------------------------------------------
+    st.write("")
+    st.markdown("""
+    <div style="background: rgba(2, 17, 7, 0.92); border: 1px solid #064e3b; border-radius: 15px; padding: 20px; text-align: center; max-width: 500px; margin: 0 auto;">
+        <h4 style="color: #10b981; margin: 0 0 5px 0; font-size: 14px; font-weight: 900;">📋 LOG ROUND RESULT</h4>
+        <p style="color: #6b7280; font-size: 10px; margin-bottom: 15px;">Enter the actual multiplier from the last round to improve prediction accuracy</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    input_col1, input_col2, input_col3 = st.columns([3, 2, 2])
+    with input_col1:
+        round_multiplier = st.number_input(
+            "MULTIPLIER",
+            min_value=1.00,
+            max_value=100.00,
+            value=1.50,
+            step=0.05,
+            format="%.2f",
+            label_visibility="collapsed"
+        )
+    with input_col2:
+        if st.button("LOG ROUND", use_container_width=True):
+            if insert_round_result(st.session_state["casino"], float(round_multiplier)):
+                st.success(f"Logged {round_multiplier:.2f}x for {st.session_state['casino']}")
+                st.rerun()
+            else:
+                st.error("Failed to log round. Please try again.")
+    with input_col3:
+        st.markdown(f"""
+        <div style="text-align: center; padding-top: 8px;">
+            <p style="color: #10b981; font-size: 18px; font-weight: 900; margin: 0;">{round_count}</p>
+            <p style="color: #6b7280; font-size: 9px; font-weight: bold; margin: 2px 0 0 0;">ROUNDS LOGGED</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     # --------------------------------------------------------------------------
     # INSIDE PORTAL: APK DOWNLOADER & PERSONAL ADMIN INFO BOXES
@@ -464,7 +587,6 @@ def show_dashboard():
             <p style="color: #9ca3af; font-size: 10px; margin-bottom: 12px;">Get the official Android app package for mobile execution.</p>
         </div>
         """, unsafe_allow_html=True)
-        # Placeholder APK binary downloader button
         st.download_button(
             label="DOWNLOAD MATRIX APK",
             data=b"ICETREX_NEURAL_MATRIX_V2_APK_BINARY",
@@ -483,7 +605,7 @@ def show_dashboard():
         """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. ROUTER
+# 7. ROUTER
 # ==============================================================================
 if not st.session_state["pass"]:
     show_login()
