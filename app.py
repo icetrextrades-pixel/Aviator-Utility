@@ -6,6 +6,7 @@ import os
 import re
 import time
 from datetime import datetime
+from urllib.parse import urlparse
 import pytz
 from supabase import create_client, Client
 
@@ -823,22 +824,54 @@ def show_dashboard():
 
     if "casino_selector" not in st.session_state:
         st.session_state["casino_selector"] = st.session_state.get("casino", "AFRICABET")
+    if "custom_casinos" not in st.session_state:
+        st.session_state["custom_casinos"] = {}
     casinos = {
-        "AFRICABET": "https://mobile.africabet.co.zw/sports#/",
+        "AFRICABET": "https://www.africabet.com/",
         "1XBET": "https://www.1xbet.com/",
         "PREMIER BET": "https://www.premierbet.com/",
+        "BETIKA - KENYA": "https://www.betika.com/en-ke/",
+        "BETIKA - ZAMBIA": "https://www.betika.co.zm/en-zm/crash/flying-high",
+        "SPORTPESA - KENYA": "https://www.ke.sportpesa.com/en/casino/aviator",
+        "BET9JA - NIGERIA": "https://www.bet9ja.com/",
+        "HOLLYWOODBETS - SOUTH AFRICA": "https://www.hollywoodbets.net/aviator",
     }
     st.markdown('<div class="section-label">01 / OPERATOR CONNECTION</div>', unsafe_allow_html=True)
     op_col, link_col, sync_col = st.columns([2.2, 1.5, 2])
     with op_col:
-        selected_casino = st.selectbox("CASINO / ROUND SOURCE", list(casinos.keys()), key="casino_selector", label_visibility="collapsed")
+        selected_casino = st.selectbox(
+            "SEARCH OR ENTER CASINO",
+            list(casinos.keys()) + list(st.session_state["custom_casinos"].keys()),
+            key="casino_selector",
+            label_visibility="collapsed",
+            accept_new_options=True,
+            help="Type to search the list, or enter a casino name that is not listed.",
+        )
+        casino_url = casinos.get(selected_casino) or st.session_state["custom_casinos"].get(selected_casino, "")
+        if selected_casino not in casinos:
+            st.caption("Unlisted casino? Enter its official HTTPS address to open it.")
+            custom_url = st.text_input(
+                "OFFICIAL CASINO WEBSITE",
+                placeholder="https://example.com",
+                key=f"custom_casino_url_{selected_casino.lower().replace(' ', '_')[:40]}",
+                label_visibility="collapsed",
+            ).strip()
+            parsed_url = urlparse(custom_url)
+            if parsed_url.scheme == "https" and parsed_url.hostname and not any(char.isspace() for char in custom_url):
+                casino_url = custom_url
+                st.session_state["custom_casinos"][selected_casino] = custom_url
+            elif custom_url:
+                st.warning("Enter a complete secure address beginning with https://.")
     if selected_casino != st.session_state["casino"]:
         st.session_state["casino"] = selected_casino
         st.session_state["current_signal"] = None
         st.session_state["signal_generated_at"] = 0.0
         st.session_state["auto_signal"] = False
     with link_col:
-        st.link_button(f"OPEN {selected_casino} ↗", casinos[selected_casino], use_container_width=True)
+        if casino_url:
+            st.link_button(f"OPEN {selected_casino} ↗", casino_url, use_container_width=True)
+        else:
+            st.button("ADD WEBSITE URL", use_container_width=True, disabled=True, key="missing_casino_url")
     with sync_col:
         round_count = get_round_count(selected_casino)
         st.markdown(f"""
