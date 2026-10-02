@@ -1,4 +1,4 @@
-streamlit
-numpy
-supabase
-pytz
+streamlit>=1.56,<2
+numpy>=2.0,<3
+supabase>=2.0,<3
+pytz>=2024.1
