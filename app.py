@@ -68,8 +68,16 @@ if "supabase_client" not in st.session_state:
 supabase: Client = st.session_state["supabase_client"]
 
 ADMIN_EMAIL = "icetrextrades@gmail.com"
-ADMIN_WHATSAPP = "+263779174062"
-ADMIN_DISPLAY_PHONE = "0779 174 062"
+SUPPORT_WHATSAPP_CONTACTS = [
+    ("0785 828 643", "263785828643"),
+    ("0779 174 062", "263779174062"),
+]
+WHATSAPP_ICON_HTML = """
+<svg class="whatsapp-brand-icon" viewBox="0 0 24 24" role="img" aria-label="WhatsApp">
+  <circle cx="12" cy="12" r="12" fill="#25D366"></circle>
+  <path fill="#fff" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.768.966-.94 1.164-.173.198-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.372-.025-.521-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.273.298-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.999-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.45 4.437-9.884 9.892-9.884 2.643.001 5.126 1.03 6.993 2.898a9.825 9.825 0 0 1 2.896 6.999c-.003 5.45-4.437 9.878-9.898 9.878M20.526 3.511A11.815 11.815 0 0 0 12.046.001C5.42.001.029 5.39.026 12.017c0 2.12.555 4.189 1.612 6.014L0 24.017l6.139-1.611a11.9 11.9 0 0 0 5.705 1.452h.005c6.627 0 12.017-5.39 12.02-12.017a11.9 11.9 0 0 0-3.343-8.33"></path>
+</svg>
+"""
 
 
 def normalize_phone_number(value: str) -> str:
@@ -778,10 +786,43 @@ def show_login():
                     st.session_state["auth_mode"] = "signup"
                     st.rerun()
 
+    st.markdown("""
+    <style>
+      .login-support-email { text-align: center; margin: 1rem 0 0.55rem; font-size: 0.9rem; }
+      .login-support-email a { color: #f3f4f6 !important; text-decoration: none; }
+      .login-support-row { max-width: 390px; margin: 0 auto; }
+      .whatsapp-brand-icon { width: 30px; height: 30px; display: block; margin: 0.45rem auto; }
+      div[data-testid="stPopover"] > button {
+        background: #ffffff !important; color: #111827 !important;
+        border: 1px solid #d1d5db !important; border-radius: 8px !important;
+        min-height: 44px; font-weight: 700 !important;
+      }
+      div[data-testid="stPopover"] > button:hover { background: #f3f4f6 !important; }
+      .support-contact-email { margin: 0.25rem 0 0.85rem; }
+      .support-whatsapp-link {
+        display: flex; align-items: center; gap: 0.65rem; padding: 0.7rem 0.8rem;
+        margin: 0.45rem 0; border: 1px solid #2a2d33; border-radius: 9px;
+        color: #f9fafb !important; text-decoration: none !important; background: #17191f;
+      }
+      .support-whatsapp-link .whatsapp-brand-icon { flex: 0 0 24px; width: 24px; height: 24px; margin: 0; }
+      .support-whatsapp-link:hover { border-color: #25D366; }
+    </style>
+    """, unsafe_allow_html=True)
     st.markdown(
-        f'<div class="footer-text">NEED HELP? <a href="https://wa.me/263779174062">WhatsApp {ADMIN_DISPLAY_PHONE}</a> &nbsp;•&nbsp; <a href="tel:{ADMIN_WHATSAPP}">CALL {ADMIN_DISPLAY_PHONE}</a></div>',
+        f'<div class="login-support-email"><a href="mailto:{ADMIN_EMAIL}">{ADMIN_EMAIL}</a></div>',
         unsafe_allow_html=True,
     )
+    icon_col, support_col = st.columns([0.16, 1])
+    with icon_col:
+        st.markdown(WHATSAPP_ICON_HTML, unsafe_allow_html=True)
+    with support_col:
+        with st.popover("Contact Support/Admin", use_container_width=True):
+            st.markdown(f'<div class="support-contact-email"><a href="mailto:{ADMIN_EMAIL}">{ADMIN_EMAIL}</a></div>', unsafe_allow_html=True)
+            for display_phone, whatsapp_number in SUPPORT_WHATSAPP_CONTACTS:
+                st.markdown(
+                    f'<a class="support-whatsapp-link" href="https://wa.me/{whatsapp_number}" target="_blank" rel="noopener noreferrer">{WHATSAPP_ICON_HTML}<span>WhatsApp · {display_phone}</span></a>',
+                    unsafe_allow_html=True,
+                )
 
 def show_dashboard():
     active_tab = st.session_state["active_tab"]
