@@ -117,7 +117,8 @@ STRATEGIES = {
         "boost_multiplier": 1.15,
         "boost_threshold": 0.80,
         "blend_recent": 0.40,
-        "tagline": "SAFE & STEADY",
+        "tagline": "P25 HISTORICAL REFERENCE",
+        "reference_quantile": 0.25,
         "accent_color": "#3b82f6",
     },
     "MR CRUSHER": {
@@ -126,7 +127,8 @@ STRATEGIES = {
         "boost_multiplier": 1.50,
         "boost_threshold": 0.65,
         "blend_recent": 0.20,
-        "tagline": "HIGH ROLLER",
+        "tagline": "P75 HIGH-THRESHOLD REFERENCE",
+        "reference_quantile": 0.75,
         "accent_color": "#ef4444",
     },
     "AVI10": {
@@ -135,7 +137,8 @@ STRATEGIES = {
         "boost_multiplier": 1.30,
         "boost_threshold": 0.72,
         "blend_recent": 0.30,
-        "tagline": "BALANCED MODE",
+        "tagline": "P50 MEDIAN REFERENCE",
+        "reference_quantile": 0.50,
         "accent_color": "#10b981",
     },
 }
@@ -155,7 +158,7 @@ def fetch_live_history(casino_name: str, limit: int = 50) -> list:
             return [f"{row['multiplier']:.2f}x" for row in resp.data]
     except Exception:
         pass
-    return ["1.50x", "2.10x", "1.15x", "1.80x", "1.30x", "2.50x", "1.10x", "1.60x", "3.20x", "1.05x"]
+    return []
 
 def insert_round_result(casino_name: str, multiplier: float, strategy: str) -> bool:
     try:
@@ -487,29 +490,25 @@ def execute_neural_math(history_data):
     except Exception:
         return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
 
-def generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, strategy_name: str) -> float:
-    """Generate a prediction using the strategy-specific parameters."""
-    strat = STRATEGIES[strategy_name]
-    uniform_random = np.random.random()
-    frechet_jump = abs(np.log(uniform_random)) ** (-1.0 / tail_index)
-    raw_target = mu + (sigma * frechet_jump)
-    raw_target *= (1.0 + momentum)
+def generate_signal(history_data, strategy_name: str):
+    """Return a historical quantile reference, never a randomized next-round prediction."""
+    values = []
+    for value in history_data:
+        try:
+            number = float(str(value).replace("x", "").strip())
+            if math.isfinite(number) and number >= 1.0:
+                values.append(number)
+        except (TypeError, ValueError):
+            continue
 
-    percentile = np.random.random()
-    if percentile > strat["boost_threshold"]:
-        raw_target *= strat["boost_multiplier"]
+    if len(values) < 20:
+        return None
 
-    raw_target = max(1.05, raw_target)
+    strategy = STRATEGIES[strategy_name]
+    quantile = strategy["reference_quantile"]
+    reference = float(np.quantile(np.asarray(values, dtype=float), quantile))
+    return float(max(strategy["min_target"], min(strategy["max_target"], reference)))
 
-    if recent_actual:
-        recent_avg = np.mean(recent_actual[-3:])
-        blend = strat["blend_recent"]
-        final_target = (raw_target * (1.0 - blend)) + (recent_avg * blend)
-    else:
-        final_target = raw_target
-
-    final_target = max(strat["min_target"], min(strat["max_target"], final_target))
-    return float(final_target)
 
 # ==============================================================================
 # 5. CSS
@@ -634,7 +633,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
     rate = accuracy["rate"]
     signal_age = max(0, time.time() - generated_at) if generated_at else 0
     initial_elapsed = max(0, int(time.time() - last_round_at)) if last_round_at else -1
-    signal_state = "SIGNAL LOCKED" if generated_at else "AWAITING GENERATION"
+    signal_state = "REFERENCE UPDATED" if generated_at else "AWAITING REFERENCE"
     accuracy_color = "#4ade80" if rate >= 60 else ("#fbbf24" if rate >= 40 else "#fb7185")
 
     recent = []
@@ -714,8 +713,8 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
       <div class="instrument-body">
         <div class="dial-wrap">
           <div class="dial-glow"></div><div class="dial-track"></div><div class="dial-orbit {"spin-up" if generated_at and signal_age < 4 else ""}"></div><div class="dial-inner"></div>
-          <div class="dial-core"><div class="dial-kicker">POTENTIAL TARGET</div><div class="dial-value">{display_target}</div><div class="dial-label">MULTIPLIER</div></div>
-          <div class="dial-stat left">NEURAL SIGNAL</div><div class="dial-stat right">ROUND SYNC</div>
+          <div class="dial-core"><div class="dial-kicker">HISTORICAL REFERENCE</div><div class="dial-value">{display_target}</div><div class="dial-label">MULTIPLIER</div></div>
+          <div class="dial-stat left">EMPIRICAL QUANTILE</div><div class="dial-stat right">ROUND SYNC</div>
         </div>
         <div class="telemetry">
           <div class="telemetry-box">
@@ -1210,27 +1209,33 @@ def show_dashboard():
 
     # A submitted result is the synchronization event, even when it is 1.00x.
     if st.session_state.get("refresh_after_round"):
-        signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
-        st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
-        st.session_state["current_signal"] = signal
-        st.session_state["signal_generated_at"] = time.time()
-        st.session_state["signal_casino"] = selected_casino
-        st.session_state["signal_mode"] = active_tab
-        st.session_state["refresh_after_round"] = False
-        save_prediction(selected_casino, active_tab, signal)
-
-    st.markdown('<div class="section-label">02 / LIVE SIGNAL INSTRUMENT</div>', unsafe_allow_html=True)
-    gen_col, band_col = st.columns([2.3, 1.3])
-    with gen_col:
-        if st.button("GENERATE NEW SIGNAL  ⟲", use_container_width=True, type="primary", key="generate_signal"):
-            signal = generate_signal(mu, sigma, momentum, tail_index, boost_prob, recent_actual, active_tab)
+        signal = generate_signal(live_history, active_tab)
+        if signal is not None:
             st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
             st.session_state["current_signal"] = signal
             st.session_state["signal_generated_at"] = time.time()
             st.session_state["signal_casino"] = selected_casino
             st.session_state["signal_mode"] = active_tab
             save_prediction(selected_casino, active_tab, signal)
-            st.rerun()
+        else:
+            st.session_state["current_signal"] = None
+        st.session_state["refresh_after_round"] = False
+
+    st.markdown('<div class="section-label">02 / LIVE HISTORY REFERENCE</div>', unsafe_allow_html=True)
+    gen_col, band_col = st.columns([2.3, 1.3])
+    with gen_col:
+        if st.button("REFRESH HISTORICAL REFERENCE  ⟲", use_container_width=True, type="primary", key="generate_signal", disabled=len(live_history) < 20):
+            signal = generate_signal(live_history, active_tab)
+            if signal is None:
+                st.warning("Log at least 20 valid round results before generating a historical reference.")
+            else:
+                st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
+                st.session_state["current_signal"] = signal
+                st.session_state["signal_generated_at"] = time.time()
+                st.session_state["signal_casino"] = selected_casino
+                st.session_state["signal_mode"] = active_tab
+                save_prediction(selected_casino, active_tab, signal)
+                st.rerun()
     with band_col:
         st.metric("TARGET BAND", f"{strat['min_target']:.1f}–{strat['max_target']:.1f}x")
 
@@ -1241,7 +1246,7 @@ def show_dashboard():
     if current_signal is not None and not matching_signal:
         current_signal = None
     if current_signal is None:
-        st.info("Signal core is idle. Choose a casino, then generate a signal. Enter actual round results below to update the selected casino's Supabase history.")
+        st.info("Not enough logged data for a reference yet. Log real round results below; at least 20 are required.")
         render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy, last_round_at=get_latest_round_timestamp(selected_casino))
     else:
         render_signal_card(
@@ -1249,7 +1254,7 @@ def show_dashboard():
             st.session_state.get("signal_generated_at", 0.0),
             get_latest_round_timestamp(selected_casino),
         )
-    st.caption("Round sync is event-driven: every submitted result, including 1.00x, resolves the previous signal and immediately generates the next estimate.")
+    st.caption("Every logged result, including 1.00x, resolves the previous reference check. New references summarize logged history; they do not sync to a casino feed or forecast the next independent round.")
 
     show_signal_lab(selected_casino, active_tab)
 
@@ -1277,7 +1282,7 @@ def show_dashboard():
       <b>DATA SOURCE STATUS</b><br>
       The selected operator button opens its website. This build has no official operator result feed connected.
       Round values entered here are saved to Supabase and are then used for that operator's history and signal calculations.
-      Estimates are stochastic summaries of entered data; they are not guaranteed outcomes.
+      References are empirical quantiles of logged data, not forecasts. Crash rounds remain unpredictable.
     </div>
     """, unsafe_allow_html=True)
 
