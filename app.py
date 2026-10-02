@@ -262,6 +262,89 @@ def get_recent_signals(casino_name: str, strategy: str, limit: int = 3) -> list:
     except Exception:
         return []
 
+def fetch_round_sample(casino_name: str, limit: int = 500) -> list:
+    """Fetch real member-submitted outcomes for descriptive odds analysis."""
+    try:
+        response = (supabase.table("round_history").select("multiplier")
+                    .eq("casino", casino_name).order("created_at", desc=True)
+                    .limit(limit).execute())
+        values = []
+        for row in response.data or []:
+            try:
+                value = float(row.get("multiplier"))
+                if math.isfinite(value) and value >= 1.0:
+                    values.append(value)
+            except (TypeError, ValueError):
+                continue
+        return values
+    except Exception:
+        return []
+
+
+def wilson_interval(successes: int, total: int, z: float = 1.96) -> tuple:
+    """Wilson score interval for a binomial proportion."""
+    if total <= 0:
+        return 0.0, 0.0
+    proportion = successes / total
+    z_squared = z * z
+    denominator = 1 + z_squared / total
+    center = (proportion + z_squared / (2 * total)) / denominator
+    margin = z * math.sqrt((proportion * (1 - proportion) + z_squared / (4 * total)) / total) / denominator
+    return max(0.0, center - margin), min(1.0, center + margin)
+
+
+def build_historical_odds_rows(values: list) -> list:
+    """Summarize observed threshold frequencies from logged rounds."""
+    sample = []
+    for value in values:
+        try:
+            value = float(value)
+            if math.isfinite(value) and value >= 1.0:
+                sample.append(value)
+        except (TypeError, ValueError):
+            continue
+    total = len(sample)
+    if not total:
+        return []
+
+    rows = []
+    for target in (1.5, 2.0, 3.0, 5.0, 10.0, 20.0):
+        hits = sum(value >= target for value in sample)
+        observed = hits / total
+        low, high = wilson_interval(hits, total)
+        rows.append({
+            "Cash-out target": f"{target:g}x",
+            "Logged rounds reaching target": f"{hits} / {total}",
+            "Observed hit rate": f"{observed * 100:.1f}%",
+            "95% Wilson range": f"{low * 100:.1f}%–{high * 100:.1f}%",
+            "Break-even hit rate": f"{100 / target:.1f}%",
+            "Historical net per 100 staked": f"{(observed * target - 1) * 100:+.1f}%",
+        })
+    return rows
+
+
+def show_historical_odds_lab(casino_name: str):
+    st.markdown('<div class="section-label">02B / HISTORICAL ODDS & BREAK-EVEN LAB</div>', unsafe_allow_html=True)
+    with st.expander("VIEW OBSERVED ODDS BY CASH-OUT TARGET", expanded=True):
+        values = fetch_round_sample(casino_name)
+        total = len(values)
+        if not total:
+            st.info("No valid member-submitted rounds are available for this casino yet. Log real results to build the sample.")
+            return
+
+        st.metric("ROUNDS IN SAMPLE", total)
+        st.dataframe(build_historical_odds_rows(values), use_container_width=True, hide_index=True)
+        st.caption(
+            "These are historical frequencies from member-submitted, unverified results. "
+            "Break-even hit rate is 1 divided by target; historical net assumes a fixed cash-out "
+            "and ignores operator rules, promotions, and data errors. The 95% Wilson range describes "
+            "sampling uncertainty in this log; it is not a probability range for the next round."
+        )
+        if total < 100:
+            st.warning("Small samples can swing sharply. Treat these figures as weak evidence, not a betting edge.")
+        st.info("Crash rounds are designed to be unpredictable. Recent outcomes do not tell you when the next round will crash.")
+
+
 def fetch_community_messages(limit: int = 60) -> list:
     """Read the newest community messages visible to signed-in users."""
     response = supabase.table("community_chat_messages") \
@@ -389,7 +472,7 @@ def execute_neural_math(history_data):
     try:
         vals = [float(x.replace('x','').strip()) for x in history_data if x.strip()]
         if len(vals) < 3:
-            return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
+            return 1.45, 0.20, 0.0, 2.0, 0.0, 0.15, []
         arr = np.array(vals)
         mu = float(np.mean(arr))
         raw_sigma = float(np.std(arr))
@@ -397,7 +480,7 @@ def execute_neural_math(history_data):
         log_returns = np.diff(np.log(arr))
         momentum = float(np.mean(log_returns)) if len(log_returns) > 0 else 0.0
         tail_index = hill_estimator(arr)
-        confidence = compute_confidence(arr, mu, sigma, tail_index)
+        confidence = float(len(arr))
         boost_prob = estimate_boost_probability(arr)
         recent_actual = [float(v) for v in vals[:3]]
         return mu, sigma, momentum, min(tail_index, 15.0), confidence, boost_prob, recent_actual
@@ -545,7 +628,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
     mode_tag = {"PREDICTOR": "01 / LOW-VARIANCE LAB", "AVI10": "10 / NEURAL CORE", "MR CRUSHER": "X / HIGH-IMPACT ENGINE"}[active_mode]
     skin_class = {"PREDICTOR": "skin-predictor", "AVI10": "skin-avi10", "MR CRUSHER": "skin-crusher"}[active_mode]
     display_target = f"{signal_value:.2f}X" if signal_value else "— —"
-    confidence_text = f"{int(confidence)}%" if confidence else "—"
+    sample_depth_text = str(int(confidence)) if confidence else "0"
     hits = accuracy["hits"]
     total = accuracy["total"]
     rate = accuracy["rate"]
@@ -640,7 +723,7 @@ def render_signal_card(active_mode: str, signal_value: float, confidence: float,
             <div class="telemetry-value"><span id="round-age">{"—" if initial_elapsed < 0 else f"{initial_elapsed:02d}"}</span><em> SEC</em></div>
             <div class="window-track"><div class="sync-fill"></div></div>
           </div>
-          <div class="telemetry-box"><div class="telemetry-label">MODEL CONFIDENCE</div><div class="telemetry-value">{confidence_text}<em> / SAMPLE</em></div></div>
+          <div class="telemetry-box"><div class="telemetry-label">INPUT SAMPLE DEPTH</div><div class="telemetry-value">{sample_depth_text}<em> / ROUNDS</em></div></div>
           <div class="telemetry-box"><div class="telemetry-label">HISTORY ACCURACY</div><div class="telemetry-value" style="color:{accuracy_color}">{rate}% <em>{hits}/{total} RESOLVED</em></div></div>
         </div>
       </div>
@@ -1169,6 +1252,8 @@ def show_dashboard():
     st.caption("Round sync is event-driven: every submitted result, including 1.00x, resolves the previous signal and immediately generates the next estimate.")
 
     show_signal_lab(selected_casino, active_tab)
+
+    show_historical_odds_lab(selected_casino)
 
     st.markdown('<div class="section-label">03 / ROUND DATA & ACCURACY</div>', unsafe_allow_html=True)
     round_col, submit_col, stats_col = st.columns([1.5, 1, 2])
