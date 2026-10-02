@@ -824,6 +824,27 @@ def show_login():
                     unsafe_allow_html=True,
                 )
 
+
+def logout_user():
+    """End the Supabase session and clear signed-in dashboard state."""
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+
+    st.session_state["pass"] = False
+    st.session_state["user"] = ""
+    st.session_state["user_email"] = ""
+    st.session_state["user_id"] = ""
+    st.session_state["current_signal"] = None
+    st.session_state["signal_generated_at"] = 0.0
+    st.session_state["refresh_after_round"] = False
+    st.session_state["pending_signup"] = {}
+    st.session_state["auth_mode"] = "login"
+    st.session_state["auth_notice"] = "You have been logged out."
+    st.rerun()
+
+
 def show_dashboard():
     active_tab = st.session_state["active_tab"]
     strat = STRATEGIES[active_tab]
@@ -837,6 +858,11 @@ def show_dashboard():
       <span><span class="live">● SECURE SESSION</span> &nbsp; / &nbsp; ZIMBABWE STANDARD TIME</span>
     </div>
     """, unsafe_allow_html=True)
+
+    _, logout_col = st.columns([5, 1.4])
+    with logout_col:
+        if st.button("LOG OUT", icon=":material/logout:", use_container_width=True, key="logout_button"):
+            logout_user()
 
     mode_detail = {
         "PREDICTOR": ("THE QUIET EDGE", "Measured targets • lower-variance presentation • cool blue instrument suite"),
