@@ -136,28 +136,20 @@ def fetch_members(limit: int = 1000) -> list:
     rows = []
     for user in users:
         def value(name, default=None):
-            if isinstance(user, dict):
-                return user.get(name, default)
-            return getattr(user, name, default)
+            return user.get(name, default) if isinstance(user, dict) else getattr(user, name, default)
 
-        metadata = value("user_metadata", {}) or {}
-        if not isinstance(metadata, dict):
-            metadata = {}
         email = value("email", "") or ""
+        app_metadata = value("app_metadata", {}) or {}
+        approved = app_metadata.get("aviator_access_approved") is True or email.lower() == ADMIN_EMAIL.lower()
         banned_until = value("banned_until")
         restricted = bool(banned_until) and str(banned_until).lower() != "none"
-        created = value("created_at") or ""
-        last_seen = value("last_sign_in_at")
         rows.append({
-            "Username": metadata.get("username") or (email.split("@", 1)[0] if email else "Member"),
+            "_user_id": value("id", ""),
+            "_app_metadata": app_metadata,
             "Email": email,
-            "Status": "Restricted" if restricted else "Active",
-            "Email verified": "Yes" if value("email_confirmed_at") or value("confirmed_at") else "No",
-            "Created": created,
-            "Last sign-in": last_seen or "Never",
+            "Status": "Restricted" if restricted else ("Approved" if approved else "Pending approval"),
         })
     return rows
-
 
 def show_admin_login():
     st.markdown(
@@ -213,19 +205,44 @@ def show_admin_dashboard():
             st.caption(f"Admin data service: {type(exc).__name__}: {str(exc)[:300]}")
         return
 
+    pending = [row for row in members if row["Status"] == "Pending approval"]
+    approved_count = sum(row["Status"] == "Approved" for row in members)
     restricted = sum(row["Status"] == "Restricted" for row in members)
-    active = len(members) - restricted
     m1, m2, m3 = st.columns(3)
     m1.metric("AUTH ACCOUNTS", len(members))
-    m2.metric("ACTIVE", active)
-    m3.metric("RESTRICTED", restricted)
+    m2.metric("APPROVED", approved_count)
+    m3.metric("PENDING", len(pending))
     st.markdown('<div class="admin-card"><div class="admin-chip">MEMBER ACCESS DIRECTORY</div>'
-                '<p class="admin-note">Provisioned Supabase Auth accounts and their access state.</p></div>',
+                '<p class="admin-note">Email and approval state only. Passwords are never viewable. Usernames are not shown here.</p></div>',
                 unsafe_allow_html=True)
     if members:
-        st.dataframe(members, use_container_width=True, hide_index=True)
+        st.dataframe([{"Email": row["Email"], "Status": row["Status"]} for row in members],
+                     use_container_width=True, hide_index=True)
     else:
         st.info("No provisioned Supabase Auth accounts were returned.")
+
+    if pending:
+        labels = {row["Email"]: row for row in pending}
+        with st.form("approve_member_account"):
+            selected_email = st.selectbox("PENDING EMAIL", list(labels.keys()))
+            approve = st.form_submit_button("APPROVE ACCOUNT", type="primary", use_container_width=True)
+        if approve:
+            row = labels[selected_email]
+            if not SUPABASE_ADMIN_KEY:
+                st.error("SUPABASE_SECRET_KEY is not configured in Streamlit Secrets.")
+            else:
+                try:
+                    admin_client = create_client(SUPABASE_URL, SUPABASE_ADMIN_KEY)
+                    app_metadata = dict(row.get("_app_metadata") or {})
+                    app_metadata["aviator_access_approved"] = True
+                    admin_client.auth.admin.update_user_by_id(
+                        row["_user_id"],
+                        {"app_metadata": app_metadata, "email_confirm": True},
+                    )
+                    st.success(f"Approved {selected_email}. The member can now sign in.")
+                    st.rerun()
+                except Exception:
+                    st.error("Supabase could not approve this account. Check the admin service key and try again.")
 
 
 def main():

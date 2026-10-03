@@ -2,8 +2,15 @@ name: Publish Android APK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+    paths:
+      - "app/build.gradle"
+      - "app/src/**"
+      - ".github/workflows/publish-apk.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -38,14 +45,21 @@ jobs:
       - name: Name release asset
         run: cp app/build/outputs/apk/debug/app-debug.apk AviatorUtility.apk
 
-      - name: Attach APK to GitHub Release
+      - name: Publish versioned APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" AviatorUtility.apk --clobber
+          if [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
+            VERSION_NAME=$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle | head -n 1)
+            RELEASE_TAG="v${VERSION_NAME}"
           else
-            gh release create "${GITHUB_REF_NAME}" AviatorUtility.apk \
-              --title "Aviator Utility ${GITHUB_REF_NAME}" \
-              --notes "Installable Android WebView app for https://icetrexpredictor.streamlit.app/. An internet connection is required."
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" AviatorUtility.apk --clobber
+          else
+            gh release create "${RELEASE_TAG}" AviatorUtility.apk \
+              --title "Aviator Utility ${RELEASE_TAG}" \
+              --notes "Android WebView app for https://icetrexpredictor.streamlit.app/. Internet connection required."
           fi
