@@ -113,40 +113,27 @@ if "session_spend_amount" not in st.session_state: st.session_state["session_spe
 MIN_REFERENCE_ROUNDS = 5
 MATURE_REFERENCE_ROUNDS = 20
 
-# Each tab gets a distinct prediction personality.
-# min_target / max_target clamp the final signal.
-# boost_multiplier amplifies the raw target when a boost fires.
-# boost_threshold is the percentile above which a boost triggers.
-# blend_recent controls how much weight recent actuals get vs raw math.
+# These are distinct historical-reference methods, not forecasts.
 STRATEGIES = {
     "PREDICTOR": {
         "min_target": 1.10,
         "max_target": 2.00,
-        "boost_multiplier": 1.15,
-        "boost_threshold": 0.80,
-        "blend_recent": 0.40,
-        "tagline": "P25 HISTORICAL REFERENCE",
-        "reference_quantile": 0.25,
+        "tagline": "LOW-STAKES PROFILE · P25 LOWER QUARTILE",
+        "method_note": "Conservative lower-quartile reference from the full logged sample.",
         "accent_color": "#3b82f6",
     },
     "MR CRUSHER": {
         "min_target": 2.00,
         "max_target": 5.00,
-        "boost_multiplier": 1.50,
-        "boost_threshold": 0.65,
-        "blend_recent": 0.20,
-        "tagline": "P75 HIGH-THRESHOLD REFERENCE",
-        "reference_quantile": 0.75,
+        "tagline": "HIGH-STAKES PROFILE · P75/P90 TAIL BLEND",
+        "method_note": "Upper-tail reference for higher variance; it is not a recommendation to wager more.",
         "accent_color": "#ef4444",
     },
     "AVI10": {
         "min_target": 1.40,
         "max_target": 3.50,
-        "boost_multiplier": 1.30,
-        "boost_threshold": 0.72,
-        "blend_recent": 0.30,
-        "tagline": "P50 MEDIAN REFERENCE",
-        "reference_quantile": 0.50,
+        "tagline": "MID-STAKES PROFILE · RECENCY-WEIGHTED P50",
+        "method_note": "Median reference with recent logged rounds given more descriptive weight.",
         "accent_color": "#10b981",
     },
 }
@@ -468,8 +455,8 @@ def execute_neural_math(history_data):
     except Exception:
         return 1.45, 0.20, 0.0, 2.0, 50.0, 0.15, []
 
-def generate_signal(history_data, strategy_name: str):
-    """Return a historical quantile reference, never a randomized next-round prediction."""
+def parse_valid_round_values(history_data) -> list:
+    """Parse submitted multipliers, newest first when provided by round_history."""
     values = []
     for value in history_data:
         try:
@@ -478,14 +465,62 @@ def generate_signal(history_data, strategy_name: str):
                 values.append(number)
         except (TypeError, ValueError):
             continue
+    return values
 
+
+def weighted_quantile(values, weights, quantile: float) -> float:
+    """Return an observed quantile with explicit per-round weights."""
+    data = np.asarray(values, dtype=float)
+    sample_weights = np.asarray(weights, dtype=float)
+    order = np.argsort(data)
+    sorted_data = data[order]
+    sorted_weights = sample_weights[order]
+    cumulative = np.cumsum(sorted_weights)
+    cutoff = min(max(float(quantile), 0.0), 1.0) * cumulative[-1]
+    index = min(int(np.searchsorted(cumulative, cutoff, side="left")), len(sorted_data) - 1)
+    return float(sorted_data[index])
+
+
+def generate_signal(history_data, strategy_name: str):
+    """Return the department's historical reference; it does not forecast the next round."""
+    values = parse_valid_round_values(history_data)
     if len(values) < MIN_REFERENCE_ROUNDS:
         return None
 
+    sample = np.asarray(values, dtype=float)
+    if strategy_name == "PREDICTOR":
+        # Lower quartile: a conservative threshold descriptive of the full sample.
+        reference = float(np.quantile(sample, 0.25))
+    elif strategy_name == "AVI10":
+        # Weighted median: recent rounds carry higher descriptive weight.
+        weights = np.power(0.96, np.arange(len(sample), dtype=float))
+        reference = weighted_quantile(sample, weights, 0.50)
+    elif strategy_name == "MR CRUSHER":
+        # Blend upper quartile and 90th percentile to expose a higher-variance tail.
+        q75, q90 = np.quantile(sample, [0.75, 0.90])
+        reference = float(0.70 * q75 + 0.30 * q90)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy_name}")
+
     strategy = STRATEGIES[strategy_name]
-    quantile = strategy["reference_quantile"]
-    reference = float(np.quantile(np.asarray(values, dtype=float), quantile))
     return float(max(strategy["min_target"], min(strategy["max_target"], reference)))
+
+
+def estimate_historical_target_rate(history_data, target: float) -> dict:
+    """Describe how often submitted historical rounds reached a reference target."""
+    values = parse_valid_round_values(history_data)
+    total = len(values)
+    if not total:
+        return {"hits": 0, "total": 0, "rate": 0.0, "low": 0.0, "high": 0.0}
+    hits = sum(value >= target for value in values)
+    low, high = wilson_interval(hits, total)
+    return {
+        "hits": hits,
+        "total": total,
+        "rate": hits / total * 100,
+        "low": low * 100,
+        "high": high * 100,
+    }
 
 
 # ==============================================================================
@@ -1087,7 +1122,7 @@ position:relative;overflow:hidden}
 </div><div class="track"><div class="fill"></div></div></div>
 <script>
 const scenes=[
-["01 / SELECT","Choose a casino + department","Each department shows a different historical reference."],
+["01 / SELECT","Choose your analysis mode","PREDICTOR P25 · AVI10 weighted P50 · MR CRUSHER P75/P90."],
 ["02 / RECORD","Log the real result","Enter the actual multiplier after the round. 1.00x is valid."],
 ["03 / BUILD","Start with five rounds","References under 20 results are provisional."],
 ["04 / REVIEW","Press PREDICT","It summarizes your history; it cannot know the next crash."],
@@ -1107,9 +1142,9 @@ def show_member_onboarding():
     """Guide each member through the app and record their current terms consent."""
     steps = [
         ("01 / WHAT THIS APP DOES", "Aviator Utility stores outcomes you enter and summarizes that history. It is not connected to a live casino result feed."),
-        ("02 / CHOOSE YOUR WORKSPACE", "Select the casino you actually use and the department you want. Each member's round history is saved to their own account."),
+        ("02 / CHOOSE YOUR ANALYSIS MODE", "PREDICTOR uses a conservative lower-quartile P25. AVI10 uses a recency-weighted median P50. MR CRUSHER blends upper-tail P75/P90 for higher variance; it does not improve the next round's odds. Each member's history is separate."),
         ("03 / LOG REAL OUTCOMES", "After a round ends, enter its actual multiplier and choose LOG ROUND RESULT. A 1.00x result is valid. Never guess or invent results. Five rounds unlock an early reference; fewer than 20 makes it provisional."),
-        ("04 / READ REFERENCES CAREFULLY", "PREDICT calculates a historical reference from recorded rounds. It cannot forecast the next independent crash round and does not promise a win. Compare it with actual outcomes and treat all gambling as risky."),
+        ("04 / READ REFERENCES CAREFULLY", "Each mode shows an observed historical target rate with a 95% Wilson uncertainty range. This summarizes submitted results only, not the probability of the next round. PREDICT remains a historical reference, not a forecast or promise of a win."),
         ("05 / TERMS, RISK & RESPONSIBLE USE", "Use the app only where lawful and only if you meet the legal age requirement. You are responsible for your choices and any losses. Set a time and spending limit, never borrow or chase losses, and stop if play is causing harm. Use the app at your own risk.")
     ]
     step = max(0, min(int(st.session_state.get("onboarding_step", 0)), len(steps) - 1))
@@ -1300,6 +1335,7 @@ def show_dashboard():
                 st.rerun()
     with band_col:
         st.metric("TARGET BAND", f"{strat['min_target']:.1f}–{strat['max_target']:.1f}x")
+        st.caption(strat["method_note"])
 
     accuracy = get_accuracy_stats(selected_casino, active_tab)
     recent_signals = get_recent_signals(selected_casino, active_tab)
@@ -1321,6 +1357,19 @@ def show_dashboard():
         )
     if MIN_REFERENCE_ROUNDS <= len(live_history) < MATURE_REFERENCE_ROUNDS:
         st.warning(f"EARLY SAMPLE: {len(live_history)} rounds recorded. Treat this reference as provisional until at least {MATURE_REFERENCE_ROUNDS} rounds are available.")
+    if current_signal is not None:
+        target_stats = estimate_historical_target_rate(live_history, current_signal)
+        probability_col, interval_col = st.columns(2)
+        probability_col.metric(
+            "HISTORICAL TARGET RATE",
+            f"{target_stats['rate']:.1f}%",
+            f"{target_stats['hits']} / {target_stats['total']} logged rounds reached target",
+        )
+        interval_col.metric(
+            "95% WILSON UNCERTAINTY RANGE",
+            f"{target_stats['low']:.1f}–{target_stats['high']:.1f}%",
+        )
+        st.caption("Observed sample frequency and its 95% Wilson interval only. This is not the probability of the next round.")
     st.caption("Every logged result, including 1.00x, resolves the previous reference check. New references summarize logged history; they do not sync to a casino feed or forecast the next independent round.")
 
     show_signal_lab(selected_casino, active_tab)
