@@ -105,6 +105,9 @@ if "session_spend_amount" not in st.session_state: st.session_state["session_spe
 # ==============================================================================
 # 2. STRATEGY CONFIGURATIONS
 # ==============================================================================
+MIN_REFERENCE_ROUNDS = 5
+MATURE_REFERENCE_ROUNDS = 20
+
 # Each tab gets a distinct prediction personality.
 # min_target / max_target clamp the final signal.
 # boost_multiplier amplifies the raw target when a boost fires.
@@ -471,7 +474,7 @@ def generate_signal(history_data, strategy_name: str):
         except (TypeError, ValueError):
             continue
 
-    if len(values) < 20:
+    if len(values) < MIN_REFERENCE_ROUNDS:
         return None
 
     strategy = STRATEGIES[strategy_name]
@@ -1175,10 +1178,10 @@ def show_dashboard():
     st.markdown('<div class="section-label">02 / LIVE HISTORY REFERENCE</div>', unsafe_allow_html=True)
     gen_col, band_col = st.columns([2.3, 1.3])
     with gen_col:
-        if st.button("PREDICT", use_container_width=True, type="primary", key="generate_signal", disabled=len(live_history) < 20):
+        if st.button("PREDICT", use_container_width=True, type="primary", key="generate_signal", disabled=len(live_history) < MIN_REFERENCE_ROUNDS):
             signal = generate_signal(live_history, active_tab)
             if signal is None:
-                st.warning("Log at least 20 valid round results before generating a historical reference.")
+                st.warning(f"Log at least {MIN_REFERENCE_ROUNDS} valid round results before generating an early historical reference.")
             else:
                 st.session_state["session_signals_generated"] = st.session_state.get("session_signals_generated", 0) + 1
                 st.session_state["current_signal"] = signal
@@ -1197,7 +1200,7 @@ def show_dashboard():
     if current_signal is not None and not matching_signal:
         current_signal = None
     if current_signal is None:
-        st.info("Not enough logged data for a reference yet. Log real round results below; at least 20 are required.")
+        st.info(f"Log {MIN_REFERENCE_ROUNDS - len(live_history)} more real round result(s) to generate an early historical reference. You can refine it as more rounds are added.")
         render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy, last_round_at=get_latest_round_timestamp(selected_casino))
     else:
         render_signal_card(
@@ -1205,6 +1208,8 @@ def show_dashboard():
             st.session_state.get("signal_generated_at", 0.0),
             get_latest_round_timestamp(selected_casino),
         )
+    if MIN_REFERENCE_ROUNDS <= len(live_history) < MATURE_REFERENCE_ROUNDS:
+        st.warning(f"EARLY SAMPLE: {len(live_history)} rounds recorded. Treat this reference as provisional until at least {MATURE_REFERENCE_ROUNDS} rounds are available.")
     st.caption("Every logged result, including 1.00x, resolves the previous reference check. New references summarize logged history; they do not sync to a casino feed or forecast the next independent round.")
 
     show_signal_lab(selected_casino, active_tab)
