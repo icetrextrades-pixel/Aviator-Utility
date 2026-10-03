@@ -38,10 +38,14 @@ jobs:
       - name: Name release asset
         run: cp app/build/outputs/apk/debug/app-debug.apk AviatorUtility.apk
 
-      - name: Create GitHub Release and attach APK
+      - name: Attach APK to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" AviatorUtility.apk \
-            --title "Aviator Utility ${GITHUB_REF_NAME}" \
-            --notes "Installable Android WebView app for https://icetrexpredictor.streamlit.app/. An internet connection is required."
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" AviatorUtility.apk --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" AviatorUtility.apk \
+              --title "Aviator Utility ${GITHUB_REF_NAME}" \
+              --notes "Installable Android WebView app for https://icetrexpredictor.streamlit.app/. An internet connection is required."
+          fi
