@@ -872,6 +872,12 @@ def show_login():
     if st.button("LOGIN AS ADMIN  ↗", use_container_width=True, key="admin_portal_link"):
         st.switch_page("pages/admin_dashboard.py")
 
+    st.link_button(
+        "DOWNLOAD ANDROID APP (APK)",
+        "https://github.com/icetrextrades-pixel/Aviator-Utility/releases/latest/download/AviatorUtility.apk",
+        use_container_width=True,
+    )
+
 
 def logout_user():
     """End the Supabase session and clear signed-in dashboard state."""
