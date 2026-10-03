@@ -1,5 +1,6 @@
 plugins {
     id "com.android.application"
+    id "org.jetbrains.kotlin.android"
 }
 
 android {
@@ -20,4 +21,8 @@ android {
             versionNameSuffix ""
         }
     }
+}
+
+dependencies {
+    implementation "androidx.activity:activity-ktx:1.10.1"
 }
