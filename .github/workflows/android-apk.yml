@@ -7,6 +7,7 @@ on:
       - "app/**"
       - "settings.gradle"
       - "build.gradle"
+      - "gradle.properties"
       - ".github/workflows/android-apk.yml"
   workflow_dispatch:
 
