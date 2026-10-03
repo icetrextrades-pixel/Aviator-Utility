@@ -804,6 +804,16 @@ def _username_candidates(email: str, admin_client) -> list:
     return choices[:3]
 
 
+
+def _username_available(username: str, current_user_id: str) -> bool:
+    for user in _list_auth_users(_admin_auth_client()):
+        if str(_auth_user_attr(user, "id", "")) == str(current_user_id):
+            continue
+        metadata = _auth_user_attr(user, "user_metadata", {}) or {}
+        if isinstance(metadata, dict) and str(metadata.get("username", "")).lower() == username.lower():
+            return False
+    return True
+
 def _new_strong_password() -> str:
     alphabet = string.ascii_letters + string.digits + "!@#$%*-_"
     chars = [secrets.choice(string.ascii_lowercase), secrets.choice(string.ascii_uppercase),
@@ -845,7 +855,7 @@ def _credential_reveal_html(username: str, email: str, password: str) -> str:
 .label{{color:#99adc0;font:700 10px ui-monospace,monospace;letter-spacing:1px;margin-top:12px}}
 .value{{display:block;overflow-wrap:anywhere;margin-top:4px;padding:9px;background:#040912;border:1px solid #26394a;color:#fff;font:700 15px ui-monospace,monospace;user-select:all}}
 .timer{{margin-top:12px;color:#fcd34d;font-weight:800}}.pending{{display:none;color:#d8f4ff;line-height:1.65}}
-</style></head><body><div class="card"><div class="kicker">ONE-TIME ACCOUNT CREDENTIALS</div><div id="secret">
+</style></head><body><div class="card"><div class="kicker">ONE-TIME ACCOUNT CREDENTIALS</div><p>Sign in with the email address and password; your username is your profile name.</p><div id="secret">
 <div class="warning">⚠ Save these details now. This reveal disappears after 30 seconds. Do not share your details with anyone.</div>
 <div class="label">USERNAME</div><span id="username" class="value"></span><div class="label">EMAIL</div><span id="email" class="value"></span>
 <div class="label">RANDOM PASSWORD</div><span id="password" class="value"></span><div class="timer">Credentials hide in <span id="seconds">30</span> seconds.</div></div>
@@ -903,9 +913,12 @@ def show_profile_sidebar():
                     st.error("Use letters, numbers, or underscores followed by exactly two digits.")
                 elif proposed.lower() != username.lower():
                     try:
-                        _set_profile_metadata({"username": proposed})
-                        st.success("Username updated in Supabase.")
-                        st.rerun()
+                        if not _username_available(proposed, st.session_state.get("user_id", "")):
+                            st.error("That username is already in use. Choose a different one.")
+                        else:
+                            _set_profile_metadata({"username": proposed})
+                            st.success("Username updated in Supabase.")
+                            st.rerun()
                     except Exception:
                         st.error("Supabase could not update the username. Please try again.")
 
@@ -947,8 +960,15 @@ def show_profile_sidebar():
                 confirm_password = st.text_input("CONFIRM NEW PASSWORD", type="password")
                 reset_password = st.form_submit_button("UPDATE PASSWORD", use_container_width=True)
             if reset_password:
-                if not current_password or len(new_password) < 12 or new_password != confirm_password:
-                    st.error("Enter your current password and a matching new password of at least 12 characters.")
+                is_strong = (
+                    len(new_password) >= 12
+                    and any(c.islower() for c in new_password)
+                    and any(c.isupper() for c in new_password)
+                    and any(c.isdigit() for c in new_password)
+                    and any(not c.isalnum() for c in new_password)
+                )
+                if not current_password or not is_strong or new_password != confirm_password:
+                    st.error("Enter your current password and a matching password with 12+ characters, upper- and lowercase letters, a number, and a symbol.")
                 else:
                     try:
                         verified = supabase.auth.sign_in_with_password({"email": email, "password": current_password})
@@ -993,7 +1013,7 @@ def show_login():
                         raise RuntimeError("Supabase did not return the authenticated account.")
                     actual_email = getattr(user, "email", None) or email
                     app_meta = getattr(user, "app_metadata", {}) or {}
-                    if actual_email.lower() != ADMIN_EMAIL.lower() and app_meta.get("aviator_access_approved") is not True:
+                    if app_meta.get("aviator_access_approved") is not True:
                         try:
                             supabase.auth.sign_out()
                         except Exception:
@@ -1040,6 +1060,8 @@ def show_login():
                 valid_email = email.count("@") == 1 and not any(c.isspace() for c in email) and "." in email.split("@", 1)[1]
                 if not valid_email:
                     st.error("Enter a valid email address.")
+                elif email == ADMIN_EMAIL.lower():
+                    st.error("The administrator email is reserved. Use the private Admin Access page for administrator sign-in.")
                 elif not SUPABASE_ADMIN_KEY:
                     st.error("Account creation is unavailable until the admin adds SUPABASE_SECRET_KEY to Streamlit Secrets.")
                 else:
