@@ -814,6 +814,20 @@ def _username_available(username: str, current_user_id: str) -> bool:
             return False
     return True
 
+
+def _email_for_username(username: str) -> str:
+    """Resolve exactly one username to its email for server-side password sign-in."""
+    wanted = username.strip().casefold()
+    matches = []
+    for user in _list_auth_users(_admin_auth_client()):
+        metadata = _auth_user_attr(user, "user_metadata", {}) or {}
+        candidate = metadata.get("username") if isinstance(metadata, dict) else None
+        if isinstance(candidate, str) and candidate.strip().casefold() == wanted:
+            email = _auth_user_attr(user, "email", "")
+            if isinstance(email, str) and email.strip():
+                matches.append(email.strip().lower())
+    return matches[0] if len(matches) == 1 else ""
+
 def _new_strong_password() -> str:
     alphabet = string.ascii_letters + string.digits + "!@#$%*-_"
     chars = [secrets.choice(string.ascii_lowercase), secrets.choice(string.ascii_uppercase),
@@ -1006,17 +1020,37 @@ def show_login():
             step_number, step_name = signup_steps[mode]
             st.progress(step_number / 4, text=f"CREATE ACCOUNT · STEP {step_number} OF 4 · {step_name}")
         if mode == "login":
-            email_input = st.text_input("EMAIL", placeholder="ENTER EMAIL", label_visibility="collapsed")
+            login_identifier_input = st.text_input("EMAIL OR USERNAME", placeholder="ENTER EMAIL OR USERNAME", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
             if st.session_state.get("auth_notice"):
                 st.info(st.session_state["auth_notice"])
                 st.session_state["auth_notice"] = ""
             if st.button("INITIALIZE NEURAL MATRIX", use_container_width=True):
-                email = email_input.strip().lower()
-                valid_email = email.count("@") == 1 and not any(c.isspace() for c in email) and "." in email.split("@", 1)[1]
-                if not valid_email or not password_input:
-                    st.error("Enter a valid email address and password.")
+                identifier = login_identifier_input.strip()
+                if not identifier or not password_input:
+                    st.error("Enter your email or username and password.")
                     return
+                if "@" in identifier:
+                    email = identifier.lower()
+                    valid_email = email.count("@") == 1 and not any(c.isspace() for c in email) and "." in email.split("@", 1)[1]
+                    if not valid_email:
+                        st.error("Sign-in failed. Check your email or username, password, and account approval status.")
+                        return
+                else:
+                    valid_username = (
+                        len(identifier) <= 64
+                        and all(character.isalnum() or character in "._-" for character in identifier)
+                    )
+                    if not valid_username or not SUPABASE_ADMIN_KEY:
+                        st.error("Sign-in failed. Check your email or username, password, and account approval status.")
+                        return
+                    try:
+                        email = _email_for_username(identifier)
+                    except Exception:
+                        email = ""
+                    if not email:
+                        st.error("Sign-in failed. Check your email or username, password, and account approval status.")
+                        return
                 try:
                     response = supabase.auth.sign_in_with_password({"email": email, "password": password_input})
                     user = getattr(response, "user", None)
@@ -1049,7 +1083,7 @@ def show_login():
                     st.session_state["session_time_limit_minutes"] = 30
                     st.rerun()
                 except Exception:
-                    st.error("Sign-in failed. Check your email, password, and account approval status.")
+                    st.error("Sign-in failed. Check your email or username, password, and account approval status.")
             if st.button("CREATE ACCOUNT", use_container_width=True):
                 st.session_state["auth_mode"] = "signup_email"
                 st.rerun()
