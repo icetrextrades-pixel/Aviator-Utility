@@ -1224,11 +1224,19 @@ def show_dashboard():
                 st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}; refreshing from the updated history.")
                 st.rerun()
             else:
-                st.error("Could not save the round. The administrator can open the diagnostic details below.")
-                if (st.session_state.get("user_email", "").strip().lower() == ADMIN_EMAIL
-                        and st.session_state.get("round_save_error")):
-                    with st.expander("ADMIN DIAGNOSTICS / ROUND SAVE"):
-                        st.code(st.session_state["round_save_error"])
+                st.error("Could not save the round. Open the diagnostic details below and share them with the administrator.")
+                save_error = st.session_state.get("round_save_error", "")
+                if save_error:
+                    with st.expander("ROUND SAVE DIAGNOSTICS"):
+                        st.caption("These details are visible only in your signed-in session. Do not share passwords or API keys.")
+                        st.code(save_error)
+                        error_upper = save_error.upper()
+                        if "PGRST205" in error_upper or "42P01" in error_upper:
+                            st.warning("The round_history table may be missing or absent from Supabase's API schema cache. Apply the round-history migration from this repository, then reload the app.")
+                        elif "42501" in error_upper or "ROW LEVEL SECURITY" in error_upper or "PERMISSION DENIED" in error_upper:
+                            st.warning("Supabase rejected the insert. Check that the signed-in user has the authenticated INSERT grant and the insert_own_rounds policy on public.round_history.")
+                        elif "23503" in error_upper:
+                            st.warning("Supabase rejected the user ID reference. Confirm the logged-in user's ID exists in auth.users and that round_history.user_id references auth.users(id).")
 
     with stats_col:
         st.metric("ROUNDS STORED", round_count)
