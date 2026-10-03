@@ -855,7 +855,7 @@ def _credential_reveal_html(username: str, email: str, password: str) -> str:
 .label{{color:#99adc0;font:700 10px ui-monospace,monospace;letter-spacing:1px;margin-top:12px}}
 .value{{display:block;overflow-wrap:anywhere;margin-top:4px;padding:9px;background:#040912;border:1px solid #26394a;color:#fff;font:700 15px ui-monospace,monospace;user-select:all}}
 .timer{{margin-top:12px;color:#fcd34d;font-weight:800}}.pending{{display:none;color:#d8f4ff;line-height:1.65}}
-</style></head><body><div class="card"><div class="kicker">ONE-TIME ACCOUNT CREDENTIALS</div><p>Sign in with the email address and password; your username is your profile name.</p><div id="secret">
+</style></head><body><div class="card"><div class="kicker" id="stage">STEP 3 OF 4 · SAVE CREDENTIALS</div><p>Sign in with the email address and password; your username is your profile name.</p><div id="secret">
 <div class="warning">⚠ Save these details now. This reveal disappears after 30 seconds. Do not share your details with anyone.</div>
 <div class="label">USERNAME</div><span id="username" class="value"></span><div class="label">EMAIL</div><span id="email" class="value"></span>
 <div class="label">RANDOM PASSWORD</div><span id="password" class="value"></span><div class="timer">Credentials hide in <span id="seconds">30</span> seconds.</div></div>
@@ -865,7 +865,7 @@ document.getElementById("username").textContent={username_js};
 document.getElementById("email").textContent={email_js};
 document.getElementById("password").textContent={password_js};
 let remaining=30;const timer=setInterval(()=>{{remaining--;document.getElementById("seconds").textContent=remaining;
-if(remaining<=0){{clearInterval(timer);document.getElementById("secret").remove();document.getElementById("pending").style.display="block";}}}},1000);
+if(remaining<=0){{clearInterval(timer);document.getElementById("secret").remove();document.getElementById("stage").textContent="STEP 4 OF 4 · ADMIN VERIFICATION";document.getElementById("pending").style.display="block";}}}},1000);
 </script></body></html>"""
 
 
@@ -991,9 +991,20 @@ def show_login():
     <h1 class="title-aviator">AVIATOR <span class="title-signals">SIGNALS</span></h1>
     <p class="subtext">NO RISK NO GAIN</p></div>
     """, unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 4, 1])
-    with col:
-        mode = st.session_state.get("auth_mode", "login")
+    mode = st.session_state.get("auth_mode", "login")
+    if mode == "login":
+        _, main_column, _ = st.columns([1, 4, 1])
+    else:
+        _, main_column, _ = st.columns([0.2, 10, 0.2])
+    with main_column:
+        signup_steps = {
+            "signup_email": (1, "EMAIL ADDRESS"),
+            "signup_username": (2, "CHOOSE USERNAME"),
+            "signup_credentials": (3, "SAVE CREDENTIALS"),
+        }
+        if mode in signup_steps:
+            step_number, step_name = signup_steps[mode]
+            st.progress(step_number / 4, text=f"CREATE ACCOUNT · STEP {step_number} OF 4 · {step_name}")
         if mode == "login":
             email_input = st.text_input("EMAIL", placeholder="ENTER EMAIL", label_visibility="collapsed")
             password_input = st.text_input("PASSWORD", type="password", placeholder="ENTER PASSWORD", label_visibility="collapsed")
@@ -1092,7 +1103,7 @@ def show_login():
                     st.session_state["auth_mode"] = "signup_credentials"
                     st.markdown("### ACCOUNT CREATED · PENDING ADMIN VERIFICATION")
                     st.caption("This one-time password is not saved in the app's session state or shown to the admin.")
-                    components.html(_credential_reveal_html(username, email, password), height=315, scrolling=False)
+                    components.html(_credential_reveal_html(username, email, password), height=460, scrolling=False)
                 except Exception:
                     st.error("Account creation failed. Check the Supabase admin key and whether this email is already registered.")
 
