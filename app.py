@@ -161,13 +161,25 @@ def fetch_live_history(casino_name: str, limit: int = 50) -> list:
     return []
 
 def insert_round_result(casino_name: str, multiplier: float, strategy: str) -> bool:
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        st.session_state["round_save_error"] = "No authenticated user ID is present in this Streamlit session."
+        return False
+
     try:
         supabase.table("round_history") \
-            .insert({"casino": casino_name, "multiplier": multiplier}) \
+            .insert({
+                "user_id": user_id,
+                "casino": casino_name,
+                "multiplier": multiplier,
+            }) \
             .execute()
+        st.session_state["round_save_error"] = ""
         resolve_pending_signals(casino_name, multiplier, strategy)
         return True
-    except Exception:
+    except Exception as exc:
+        # Keep diagnostics in the signed-in session; only the admin UI renders them.
+        st.session_state["round_save_error"] = f"{type(exc).__name__}: {str(exc)[:500]}"
         return False
 
 
@@ -1273,7 +1285,11 @@ def show_dashboard():
                 st.success(f"Logged {round_multiplier:.2f}x to {selected_casino}; refreshing from the updated history.")
                 st.rerun()
             else:
-                st.error("Could not log this result to Supabase. Check the database table and row-level security policies.")
+                st.error("Could not save the round. The administrator can open the diagnostic details below.")
+                if (st.session_state.get("user_email", "").strip().lower() == ADMIN_EMAIL
+                        and st.session_state.get("round_save_error")):
+                    with st.expander("ADMIN DIAGNOSTICS / ROUND SAVE"):
+                        st.code(st.session_state["round_save_error"])
 
     with stats_col:
         st.metric("ROUNDS STORED", round_count)
