@@ -1200,7 +1200,10 @@ def show_dashboard():
     if current_signal is not None and not matching_signal:
         current_signal = None
     if current_signal is None:
-        st.info(f"Log {MIN_REFERENCE_ROUNDS - len(live_history)} more real round result(s) to generate an early historical reference. You can refine it as more rounds are added.")
+        if len(live_history) < MIN_REFERENCE_ROUNDS:
+            st.info(f"Log {MIN_REFERENCE_ROUNDS - len(live_history)} more real round result(s) to generate an early historical reference. You can refine it as more rounds are added.")
+        else:
+            st.info("Generate a reference for this casino and department using the PREDICT button above.")
         render_signal_card(active_tab, 0.0, confidence, recent_signals, accuracy, last_round_at=get_latest_round_timestamp(selected_casino))
     else:
         render_signal_card(
