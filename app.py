@@ -1508,14 +1508,32 @@ def show_dashboard():
     if "custom_casinos" not in st.session_state:
         st.session_state["custom_casinos"] = {}
     casinos = {
+        # Zimbabwe operators with official online platforms.
         "AFRICABET": "https://www.africabet.com/",
+        "BEZBETS - ZIMBABWE": "https://bezbets.co.zw/",
+        "BEULABET - ZIMBABWE": "https://beulabet.com/",
+        "BET247 - ZIMBABWE": "https://www.bet247.co.zw/",
+        "BOLABET - ZIMBABWE": "https://www.bolabet.co.zw/",
+        "BESHSPORT - ZIMBABWE": "https://beshsport.bet/",
+        "JUMBOBETS - ZIMBABWE": "https://jumbobets.co.zw/",
+        "LUCKYBETS - ZIMBABWE": "https://luckybets.co.zw/",
+        "MEGABET - ZIMBABWE": "https://megabet.co.zw/",
+        "MWOS - ZIMBABWE": "https://betting.co.zw/",
+        "PRIDEBET - ZIMBABWE": "https://pridebet.co.zw/",
+        "WINBUCKS - ZIMBABWE": "https://winbucks.co.zw/",
+        # Regional and international operators. Availability varies by country.
         "1XBET": "https://www.1xbet.com/",
+        "BET365": "https://www.bet365.com/",
+        "BETFAIR": "https://www.betfair.com/",
         "PREMIER BET": "https://www.premierbet.com/",
+        "STAKE": "https://stake.com/",
+        "DAFABET": "https://www.dafabet.com/",
         "BETIKA - KENYA": "https://www.betika.com/en-ke/",
-        "BETIKA - ZAMBIA": "https://www.betika.co.zm/en-zm/crash/flying-high",
-        "SPORTPESA - KENYA": "https://www.ke.sportpesa.com/en/casino/aviator",
+        "BETIKA - ZAMBIA": "https://www.betika.co.zm/",
+        "SPORTPESA - KENYA": "https://www.ke.sportpesa.com/",
         "BET9JA - NIGERIA": "https://www.bet9ja.com/",
-        "HOLLYWOODBETS - SOUTH AFRICA": "https://www.hollywoodbets.net/aviator",
+        "HOLLYWOODBETS - SOUTH AFRICA": "https://www.hollywoodbets.net/",
+        "BETWAY - ZAMBIA": "https://www.betway.co.zm/",
     }
     st.markdown('<div class="section-label">01 / OPERATOR CONNECTION</div>', unsafe_allow_html=True)
     op_col, link_col, sync_col = st.columns([2.2, 1.5, 2])
