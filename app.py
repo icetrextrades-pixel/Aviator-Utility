@@ -48,7 +48,7 @@ SUPABASE_KEY = _get_config_value(
     "VITE_SUPABASE_ANON_KEY",
 )
 # Optional server-only key for admin account reporting. Never render or log this value.
-SUPABASE_ADMIN_KEY = _get_config_value("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY")
+
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error(
@@ -405,48 +405,6 @@ def fetch_signal_lab_rows(casino_name: str, strategy: str, limit: int = 100) -> 
     )
     return response.data or []
 
-
-def fetch_admin_members(limit: int = 1000) -> list:
-    """List provisioned Supabase Auth users using a server-only admin secret."""
-    if not SUPABASE_ADMIN_KEY:
-        raise RuntimeError("Admin reporting key is not configured.")
-
-    admin_client = create_client(SUPABASE_URL, SUPABASE_ADMIN_KEY)
-    response = admin_client.auth.admin.list_users(page=1, per_page=limit)
-    if isinstance(response, list):
-        users = response
-    elif isinstance(response, dict):
-        users = response.get("users") or response.get("data") or []
-    else:
-        users = getattr(response, "users", None) or getattr(response, "data", None) or []
-
-    rows = []
-    for user in users:
-        def value(name: str, default=None):
-            if isinstance(user, dict):
-                return user.get(name, default)
-            return getattr(user, name, default)
-
-        metadata = value("user_metadata", {}) or {}
-        if not isinstance(metadata, dict):
-            metadata = {}
-        email = value("email", "") or ""
-        banned_until = value("banned_until")
-        restricted = bool(banned_until) and str(banned_until).lower() != "none"
-        rows.append({
-            "Username": metadata.get("username") or (email.split("@", 1)[0] if email else "Member"),
-            "Email": email,
-            "Access": "Restricted" if restricted else "Provisioned",
-            "Email confirmed": "Yes" if value("email_confirmed_at") or value("confirmed_at") else "No",
-            "Created": value("created_at") or "",
-            "Last sign-in": value("last_sign_in_at") or "Never",
-        })
-    return rows
-
-
-# ==============================================================================
-# 4. STOCHASTIC MATH ENGINE
-# ==============================================================================
 
 def hill_estimator(arr: np.ndarray, k: int = None) -> float:
     sorted_desc = np.sort(arr)[::-1]
@@ -911,6 +869,9 @@ def show_login():
                     unsafe_allow_html=True,
                 )
 
+    if st.button("LOGIN AS ADMIN  ↗", use_container_width=True, key="admin_portal_link"):
+        st.switch_page("pages/admin_dashboard.py")
+
 
 def logout_user():
     """End the Supabase session and clear signed-in dashboard state."""
@@ -1084,34 +1045,6 @@ def show_community_round_pulse():
         st.dataframe(display_rows, hide_index=True, use_container_width=True)
 
     refresh_round_pulse()
-
-
-def show_admin_overview():
-    if (st.session_state.get("user_email") or "").lower() != ADMIN_EMAIL.lower():
-        return
-
-    with st.expander("06 / ADMIN OVERVIEW · MEMBER ACCOUNTS", expanded=False):
-        st.caption(
-            "This view lists accounts already provisioned in Supabase Auth. "
-            "Signup requests still arrive through Contact Support/Admin."
-        )
-        if not SUPABASE_ADMIN_KEY:
-            st.info(
-                "To enable this private account list, add SUPABASE_SECRET_KEY "
-                "(or SUPABASE_SERVICE_ROLE_KEY) to Streamlit server-side Secrets. "
-                "Never add the key to the public repository or app UI."
-            )
-            return
-        try:
-            members = fetch_admin_members()
-        except Exception:
-            st.error("Could not load the Supabase account list. Check the server-side admin key and try again.")
-            return
-        st.metric("PROVISIONED ACCOUNTS", len(members))
-        if members:
-            st.dataframe(members, hide_index=True, use_container_width=True)
-        else:
-            st.info("No Supabase Auth accounts were returned.")
 
 
 def show_dashboard():
@@ -1329,14 +1262,39 @@ def show_dashboard():
 
     community_chat()
     show_community_round_pulse()
-    show_admin_overview()
 
     st.markdown('<div class="footer-line">AVI10 NEURAL MATRIX &nbsp;•&nbsp; EDGE SYSTEMS / SESSION ACTIVE</div>', unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. ROUTER
+# 8. APP NAVIGATION
 # ==============================================================================
-if not st.session_state["pass"]:
-    show_login()
-else:
-    show_dashboard()
+def run_predictor_page():
+    if not st.session_state["pass"]:
+        show_login()
+    else:
+        show_dashboard()
+
+
+predictor_page = st.Page(
+    run_predictor_page,
+    title="Predictor",
+    url_path="predictor",
+    default=True,
+)
+admin_page = st.Page(
+    "pages/admin_dashboard.py",
+    title="Admin Access",
+    url_path="admin",
+    visibility="hidden",
+)
+current_page = st.navigation([predictor_page, admin_page], position="hidden")
+if current_page.url_path != admin_page.url_path:
+    prior_admin_client = st.session_state.get("admin_supabase_client")
+    if st.session_state.get("admin_authenticated") and prior_admin_client:
+        try:
+            prior_admin_client.auth.sign_out()
+        except Exception:
+            pass
+    for key in ("admin_authenticated", "admin_email", "admin_supabase_client"):
+        st.session_state.pop(key, None)
+current_page.run()
