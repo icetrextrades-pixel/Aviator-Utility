@@ -70,6 +70,8 @@ if "supabase_client" not in st.session_state:
 supabase: Client = st.session_state["supabase_client"]
 
 ADMIN_EMAIL = "icetrextrades@gmail.com"
+ONBOARDING_TERMS_VERSION = "2026-10-03"
+ONBOARDING_TERMS_KEY = "aviator_terms_accepted_version"
 SUPPORT_WHATSAPP_CONTACTS = [
     ("0785 828 643", "263785828643"),
     ("0779 174 062", "263779174062"),
@@ -86,6 +88,9 @@ if "pass" not in st.session_state: st.session_state["pass"] = False
 if "user" not in st.session_state: st.session_state["user"] = ""
 if "user_email" not in st.session_state: st.session_state["user_email"] = ""
 if "user_id" not in st.session_state: st.session_state["user_id"] = ""
+if "onboarding_complete" not in st.session_state: st.session_state["onboarding_complete"] = False
+if "onboarding_step" not in st.session_state: st.session_state["onboarding_step"] = 0
+if "onboarding_consent_checkbox" not in st.session_state: st.session_state["onboarding_consent_checkbox"] = False
 if "refresh_after_round" not in st.session_state: st.session_state["refresh_after_round"] = False
 if "casino" not in st.session_state: st.session_state["casino"] = "AFRICABET"
 if "active_tab" not in st.session_state: st.session_state["active_tab"] = "AVI10"
@@ -767,6 +772,9 @@ def show_login():
                         st.session_state["user"] = display_name
                         st.session_state["user_email"] = response.user.email or metadata.get("contact_email", "")
                         st.session_state["user_id"] = response.user.id
+                        st.session_state["onboarding_complete"] = metadata.get(ONBOARDING_TERMS_KEY) == ONBOARDING_TERMS_VERSION
+                        st.session_state["onboarding_step"] = 0
+                        st.session_state["onboarding_consent_checkbox"] = False
                         st.session_state["session_started_at"] = time.time()
                         st.session_state["session_signals_generated"] = 0
                         st.session_state["session_rounds_logged"] = 0
@@ -893,6 +901,9 @@ def logout_user():
     st.session_state["user"] = ""
     st.session_state["user_email"] = ""
     st.session_state["user_id"] = ""
+    st.session_state["onboarding_complete"] = False
+    st.session_state["onboarding_step"] = 0
+    st.session_state["onboarding_consent_checkbox"] = False
     st.session_state["current_signal"] = None
     st.session_state["signal_generated_at"] = 0.0
     st.session_state["refresh_after_round"] = False
@@ -1054,6 +1065,103 @@ def show_community_round_pulse():
         st.dataframe(display_rows, hide_index=True, use_container_width=True)
 
     refresh_round_pulse()
+
+
+TUTORIAL_VIDEO_HTML = """
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box} body{margin:0;background:#07101a;color:#eff6ff;font-family:Arial,sans-serif}
+.frame{height:148px;padding:16px 18px;border:1px solid #24465c;border-left:3px solid #10b981;
+background:radial-gradient(ellipse at 85% 0%,rgba(16,185,129,.23),transparent 48%),linear-gradient(135deg,#0b1724,#07101a);
+position:relative;overflow:hidden}
+.kicker{font:800 9px monospace;letter-spacing:2px;color:#6ee7b7}
+.title{font-size:18px;font-weight:900;margin-top:13px}
+.copy{font:12px/1.45 Arial;color:#aab8c9;margin-top:5px;max-width:390px}
+.track{position:absolute;bottom:0;left:0;height:3px;width:100%;background:#162736}
+.fill{height:100%;width:0;background:#34d399;box-shadow:0 0 12px #34d399;animation:progress 5s linear infinite}
+@keyframes progress{to{width:100%}}
+.fade{animation:fade .5s ease}@keyframes fade{from{opacity:.15;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.fade,.fill{animation:none}}
+</style></head><body><div class="frame"><div id="scene" class="fade">
+<div id="kicker" class="kicker"></div><div id="title" class="title"></div><div id="copy" class="copy"></div>
+</div><div class="track"><div class="fill"></div></div></div>
+<script>
+const scenes=[
+["01 / SELECT","Choose a casino + department","Each department shows a different historical reference."],
+["02 / RECORD","Log the real result","Enter the actual multiplier after the round. 1.00x is valid."],
+["03 / BUILD","Start with five rounds","References under 20 results are provisional."],
+["04 / REVIEW","Press PREDICT","It summarizes your history; it cannot know the next crash."],
+["05 / PLAY SAFE","Set limits and take breaks","Never chase losses or treat a reference as guaranteed."]
+];
+let i=0;const scene=document.getElementById("scene");
+function show(){const s=scenes[i];document.getElementById("kicker").textContent=s[0];
+document.getElementById("title").textContent=s[1];document.getElementById("copy").textContent=s[2];
+scene.classList.remove("fade");void scene.offsetWidth;scene.classList.add("fade");i=(i+1)%scenes.length}
+show();setInterval(show,5000);
+</script></body></html>
+"""
+
+
+@st.dialog("FIRST-USE SETUP · TUTORIAL & TERMS", width="small")
+def show_member_onboarding():
+    """Guide each member through the app and record their current terms consent."""
+    steps = [
+        ("01 / WHAT THIS APP DOES", "Aviator Utility stores outcomes you enter and summarizes that history. It is not connected to a live casino result feed."),
+        ("02 / CHOOSE YOUR WORKSPACE", "Select the casino you actually use and the department you want. Each member's round history is saved to their own account."),
+        ("03 / LOG REAL OUTCOMES", "After a round ends, enter its actual multiplier and choose LOG ROUND RESULT. A 1.00x result is valid. Never guess or invent results. Five rounds unlock an early reference; fewer than 20 makes it provisional."),
+        ("04 / READ REFERENCES CAREFULLY", "PREDICT calculates a historical reference from recorded rounds. It cannot forecast the next independent crash round and does not promise a win. Compare it with actual outcomes and treat all gambling as risky."),
+        ("05 / TERMS, RISK & RESPONSIBLE USE", "Use the app only where lawful and only if you meet the legal age requirement. You are responsible for your choices and any losses. Set a time and spending limit, never borrow or chase losses, and stop if play is causing harm. Use the app at your own risk.")
+    ]
+    step = max(0, min(int(st.session_state.get("onboarding_step", 0)), len(steps) - 1))
+    title, body = steps[step]
+    st.progress((step + 1) / len(steps), text=f"SETUP {step + 1} / {len(steps)}")
+    st.markdown(f"**{title}**\n\n{body}")
+
+    if step == 0:
+        st.caption("QUICK AUTOPLAY WALKTHROUGH · about 25 seconds")
+        components.html(TUTORIAL_VIDEO_HTML, height=152, scrolling=False)
+
+    if step == len(steps) - 1:
+        st.markdown("---")
+        st.markdown("**TERMS & CONDITIONS**")
+        st.markdown(
+            "This app provides historical summaries for information only. It has no live casino feed, "
+            "cannot predict independent outcomes, and makes no claim of accuracy or profit. Gambling "
+            "can cause financial and personal harm. You remain responsible for following local laws, "
+            "setting limits, and every decision you make."
+        )
+        agreed = st.checkbox(
+            "I have read the tutorial and terms. I agree to use this app at my own risk.",
+            key="onboarding_consent_checkbox",
+        )
+        if st.button("I AGREE — CONTINUE", type="primary", use_container_width=True, disabled=not agreed):
+            try:
+                accepted_at = datetime.now(pytz.UTC).isoformat()
+                response = supabase.auth.update_user({
+                    "data": {
+                        ONBOARDING_TERMS_KEY: ONBOARDING_TERMS_VERSION,
+                        "aviator_terms_accepted_at": accepted_at,
+                    }
+                })
+                updated_user = getattr(response, "user", None)
+                if not updated_user:
+                    raise RuntimeError("Supabase did not confirm the terms update.")
+                st.session_state["onboarding_complete"] = True
+                st.session_state["onboarding_step"] = 0
+                st.rerun()
+            except Exception:
+                st.error("Could not save your consent to your account. Please try again; you must agree before entering the app.")
+        st.caption("You can review this guide again any time by logging in again.")
+    else:
+        back_col, next_col = st.columns(2)
+        with back_col:
+            if step > 0 and st.button("← BACK", use_container_width=True):
+                st.session_state["onboarding_step"] = step - 1
+                st.rerun()
+        with next_col:
+            if st.button("NEXT STEP →", type="primary", use_container_width=True):
+                st.session_state["onboarding_step"] = step + 1
+                st.rerun()
 
 
 def show_dashboard():
@@ -1293,6 +1401,8 @@ def show_dashboard():
 def run_predictor_page():
     if not st.session_state["pass"]:
         show_login()
+    elif not st.session_state.get("onboarding_complete", False):
+        show_member_onboarding()
     else:
         show_dashboard()
 
