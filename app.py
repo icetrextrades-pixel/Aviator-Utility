@@ -1142,6 +1142,222 @@ def show_login():
     st.link_button("DOWNLOAD ANDROID APP (APK)", "https://github.com/icetrextrades-pixel/Aviator-Utility/releases/latest/download/AviatorUtility.apk", use_container_width=True)
 
 
+def logout_user():
+    """End the Supabase session and clear signed-in dashboard state."""
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+
+    st.session_state["pass"] = False
+    st.session_state["user"] = ""
+    st.session_state["user_email"] = ""
+    st.session_state["user_id"] = ""
+    st.session_state.pop("user_metadata", None)
+    st.session_state["profile_theme"] = "Neon Cyan"
+    st.session_state["onboarding_complete"] = False
+    st.session_state["onboarding_step"] = 0
+    st.session_state["onboarding_consent_checkbox"] = False
+    st.session_state["current_signal"] = None
+    st.session_state["signal_generated_at"] = 0.0
+    st.session_state["refresh_after_round"] = False
+    started_at = st.session_state.get("session_started_at", 0.0)
+    elapsed_seconds = max(0, int(time.time() - started_at)) if started_at else 0
+    elapsed_minutes, elapsed_remainder = divmod(elapsed_seconds, 60)
+    st.session_state["auth_mode"] = "login"
+    st.session_state["auth_notice"] = (
+        f"Session recap — {elapsed_minutes}m {elapsed_remainder}s, "
+        f"{st.session_state.get('session_signals_generated', 0)} signals generated, "
+        f"{st.session_state.get('session_rounds_logged', 0)} rounds logged."
+    )
+    st.session_state["session_started_at"] = 0.0
+    st.session_state["session_signals_generated"] = 0
+    st.session_state["session_rounds_logged"] = 0
+    st.session_state["session_spend_amount"] = 0.0
+    st.session_state["session_budget_limit"] = 0.0
+    st.session_state["session_time_limit_minutes"] = 30
+    st.rerun()
+
+
+def show_responsible_play_panel():
+    """Offer user-set session and budget reminders; values are self-reported."""
+    if not st.session_state.get("session_started_at"):
+        st.session_state["session_started_at"] = time.time()
+
+    with st.expander("00 / RESPONSIBLE PLAY · SESSION GUARDRAILS", expanded=False):
+        st.caption(
+            "Set a break reminder and an optional spending cap. Amounts are self-reported; "
+            "this app does not read casino wallets or bets and cannot restrict activity on casino sites."
+        )
+        user_key = str(st.session_state.get("user_id", "member"))[:16]
+        session_key = str(int(st.session_state.get("session_started_at", 0)))
+        with st.form("responsible_play_limits"):
+            limit_col, budget_col = st.columns(2)
+            with limit_col:
+                time_limit = st.select_slider(
+                    "Break reminder",
+                    options=[15, 30, 45, 60, 90],
+                    value=int(st.session_state.get("session_time_limit_minutes", 30)),
+                    format_func=lambda minutes: f"{minutes} minutes",
+                    key=f"play_time_limit_{user_key}",
+                )
+            with budget_col:
+                budget_limit = st.number_input(
+                    "Optional spend cap · your currency",
+                    min_value=0.0,
+                    value=float(st.session_state.get("session_budget_limit", 0.0)),
+                    step=1.0,
+                    key=f"play_budget_limit_{user_key}",
+                    help="Leave at 0 to turn the spend reminder off.",
+                )
+            spent = st.number_input(
+                "Amount spent this session · self-reported",
+                min_value=0.0,
+                value=float(st.session_state.get("session_spend_amount", 0.0)),
+                step=1.0,
+                key=f"play_spent_{user_key}_{session_key}",
+            )
+            if st.form_submit_button("SAVE MY REMINDERS", use_container_width=True):
+                st.session_state["session_time_limit_minutes"] = int(time_limit)
+                st.session_state["session_budget_limit"] = float(budget_limit)
+                st.session_state["session_spend_amount"] = float(spent)
+
+        @st.fragment(run_every="30s")
+        def update_session_reminders():
+            started_at = st.session_state.get("session_started_at", 0.0)
+            elapsed_minutes = (time.time() - started_at) / 60 if started_at else 0
+            time_limit_value = int(st.session_state.get("session_time_limit_minutes", 30))
+            progress_col, spend_col = st.columns(2)
+            with progress_col:
+                st.metric("TIME IN SESSION", f"{int(elapsed_minutes)} / {time_limit_value} min")
+                st.progress(min(elapsed_minutes / max(time_limit_value, 1), 1.0))
+                if elapsed_minutes >= time_limit_value:
+                    st.warning("Your break reminder is due. Consider stepping away from the app and casino.")
+            with spend_col:
+                cap = float(st.session_state.get("session_budget_limit", 0.0))
+                amount = float(st.session_state.get("session_spend_amount", 0.0))
+                if cap > 0:
+                    st.metric("SELF-REPORTED SPEND", f"{amount:.2f} / {cap:.2f}")
+                    st.progress(min(amount / cap, 1.0))
+                    if amount >= cap:
+                        st.warning("You reached your chosen spend cap. Consider stopping for this session.")
+                else:
+                    st.metric("SELF-REPORTED SPEND", f"{amount:.2f}")
+                    st.caption("Add a spend cap above to turn on the reminder.")
+
+        update_session_reminders()
+
+
+def show_signal_lab(casino_name: str, strategy: str):
+    with st.expander("02A / SIGNAL LAB · TARGETS VS RESULTS", expanded=False):
+        st.caption(f"Latest resolved records for {casino_name} · {strategy}. A hit means the logged result met or exceeded the saved target.")
+        try:
+            rows = fetch_signal_lab_rows(casino_name, strategy, limit=100)
+        except Exception:
+            st.info("Signal history is not available for this selection yet.")
+            return
+
+        total = len(rows)
+        hits = sum(1 for row in rows if row.get("hit") is True)
+        rate = round(hits / total * 100) if total else 0
+        stat_a, stat_b, stat_c = st.columns(3)
+        stat_a.metric("RESOLVED SAMPLE", total)
+        stat_b.metric("HITS IN SAMPLE", hits)
+        stat_c.metric("SAMPLE HIT RATE", f"{rate}%")
+        if total >= 2:
+            chart_rows = []
+            for index, row in enumerate(rows, start=1):
+                try:
+                    chart_rows.append({
+                        "Round": index,
+                        "Signal target": float(row["predicted_multiplier"]),
+                        "Actual result": float(row["actual_multiplier"]),
+                    })
+                except (TypeError, ValueError, KeyError):
+                    continue
+            if chart_rows:
+                st.line_chart(chart_rows, x="Round", y=["Signal target", "Actual result"], use_container_width=True)
+        else:
+            st.info("Log more rounds to build a historical comparison.")
+        st.caption("Historical data is descriptive only and does not guarantee or predict future results.")
+
+
+def show_community_round_pulse():
+    st.markdown('<div class="section-label">05 / COMMUNITY ROUND PULSE</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="feed-note">Latest member-submitted results across casinos. Entries are unverified and are not an official operator feed.</div>',
+        unsafe_allow_html=True,
+    )
+
+    @st.fragment(run_every="15s")
+    def refresh_round_pulse():
+        try:
+            latest = fetch_recent_round_pulse()
+        except Exception:
+            st.info("Community round pulse is unavailable right now.")
+            return
+        if not latest:
+            st.info("No community round results have been logged yet.")
+            return
+
+        display_rows = []
+        for row in latest:
+            timestamp = row.get("created_at") or ""
+            try:
+                timestamp = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00")).astimezone(pytz.UTC).strftime("%d %b %H:%M:%S UTC")
+            except (TypeError, ValueError):
+                timestamp = str(timestamp)
+            try:
+                multiplier = f"{float(row.get('multiplier')):.2f}x"
+            except (TypeError, ValueError):
+                multiplier = str(row.get("multiplier", ""))
+            display_rows.append({
+                "Casino": row.get("casino") or "Unknown",
+                "Result": multiplier,
+                "Logged": timestamp,
+            })
+        st.dataframe(display_rows, hide_index=True, use_container_width=True)
+
+    refresh_round_pulse()
+
+
+TUTORIAL_VIDEO_HTML = """
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box} body{margin:0;background:#07101a;color:#eff6ff;font-family:Arial,sans-serif}
+.frame{height:148px;padding:16px 18px;border:1px solid #24465c;border-left:3px solid #10b981;
+background:radial-gradient(ellipse at 85% 0%,rgba(16,185,129,.23),transparent 48%),linear-gradient(135deg,#0b1724,#07101a);
+position:relative;overflow:hidden}
+.kicker{font:800 9px monospace;letter-spacing:2px;color:#6ee7b7}
+.title{font-size:18px;font-weight:900;margin-top:13px}
+.copy{font:12px/1.45 Arial;color:#aab8c9;margin-top:5px;max-width:390px}
+.track{position:absolute;bottom:0;left:0;height:3px;width:100%;background:#162736}
+.fill{height:100%;width:0;background:#34d399;box-shadow:0 0 12px #34d399;animation:progress 5s linear infinite}
+@keyframes progress{to{width:100%}}
+.fade{animation:fade .5s ease}@keyframes fade{from{opacity:.15;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.fade,.fill{animation:none}}
+</style></head><body><div class="frame"><div id="scene" class="fade">
+<div id="kicker" class="kicker"></div><div id="title" class="title"></div><div id="copy" class="copy"></div>
+</div><div class="track"><div class="fill"></div></div></div>
+<script>
+const scenes=[
+["01 / SELECT","Choose your analysis mode","PREDICTOR P25 · AVI10 weighted P50 · MR CRUSHER P75/P90."],
+["02 / RECORD","Log the real result","Enter the actual multiplier after the round. 1.00x is valid."],
+["03 / BUILD","Start with five rounds","References under 20 results are provisional."],
+["04 / REVIEW","Press PREDICT","It summarizes your history; it cannot know the next crash."],
+["05 / PLAY SAFE","Set limits and take breaks","Never chase losses or treat a reference as guaranteed."]
+];
+let i=0;const scene=document.getElementById("scene");
+function show(){const s=scenes[i];document.getElementById("kicker").textContent=s[0];
+document.getElementById("title").textContent=s[1];document.getElementById("copy").textContent=s[2];
+scene.classList.remove("fade");void scene.offsetWidth;scene.classList.add("fade");i=(i+1)%scenes.length}
+show();setInterval(show,5000);
+</script></body></html>
+"""
+
+
+@st.dialog("FIRST-USE SETUP · TUTORIAL & TERMS", width="small")
+
 def show_member_onboarding():
     """Guide each member through the app and record their current terms consent."""
     steps = [
