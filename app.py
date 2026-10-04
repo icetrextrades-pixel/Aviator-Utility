@@ -1138,14 +1138,19 @@ def show_login():
                     st.markdown("### ACCOUNT CREATED · PENDING ADMIN VERIFICATION")
                     st.caption("This one-time password is not saved in the app's session state or shown to the admin.")
                     components.html(_credential_reveal_html(username, email, password), height=460, scrolling=False)
+                    if st.button("RETURN TO LOGIN PAGE", use_container_width=True, key="return_to_login_after_signup"):
+                        st.session_state["auth_mode"] = "login"
+                        st.session_state["auth_notice"] = "Your account is awaiting admin approval. You can sign in after approval."
+                        st.rerun()
                 except Exception:
                     st.error("Account creation failed. Check the Supabase admin key and whether this email is already registered.")
 
         elif mode == "signup_credentials":
             st.markdown("### CREDENTIAL REVEAL ENDED")
             st.warning("⚠ Contact the admin for verification and wait for approval before logging in. Use Contact Support/Admin or the email shown here.")
-            if st.button("BACK TO LOGIN", use_container_width=True):
+            if st.button("RETURN TO LOGIN PAGE", use_container_width=True, key="return_to_login_after_timeout"):
                 st.session_state["auth_mode"] = "login"
+                st.session_state["auth_notice"] = "Your account is awaiting admin approval. You can sign in after approval."
                 st.rerun()
         else:
             st.session_state["auth_mode"] = "login"
