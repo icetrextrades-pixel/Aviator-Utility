@@ -51,6 +51,7 @@ SUPABASE_KEY = _get_config_value(
 )
 # Server-only Supabase Auth administration key. Never render or log this value.
 SUPABASE_ADMIN_KEY = _get_config_value("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY")
+PASSWORD_RESET_URL = _get_config_value("SUPABASE_PASSWORD_RESET_REDIRECT_URL") or "https://icetrexpredictor.streamlit.app/?recover=1"
 
 
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -829,10 +830,15 @@ def _email_for_username(username: str) -> str:
     return matches[0] if len(matches) == 1 else ""
 
 def _new_strong_password() -> str:
+    """Create a unique, copy-friendly password with mixed character classes."""
     alphabet = string.ascii_letters + string.digits + "!@#$%*-_"
-    chars = [secrets.choice(string.ascii_lowercase), secrets.choice(string.ascii_uppercase),
-             secrets.choice(string.digits), secrets.choice("!@#$%*-_")]
-    chars.extend(secrets.choice(alphabet) for _ in range(28))
+    chars = [
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%*-_"),
+    ]
+    chars.extend(secrets.choice(alphabet) for _ in range(12))
     secrets.SystemRandom().shuffle(chars)
     return "".join(chars)
 
@@ -860,28 +866,93 @@ def _create_pending_member(email: str, username: str, password: str):
 def _credential_reveal_html(username: str, email: str, password: str) -> str:
     import json
     username_js, email_js, password_js = map(json.dumps, (username, email, password))
-    return f"""
+    template = r"""
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-*{{box-sizing:border-box}}body{{margin:0;background:transparent;color:#ecf7ff;font:14px system-ui,sans-serif}}
-.card{{padding:18px;border:1px solid #27d3c0;border-left:4px solid #25d366;background:linear-gradient(135deg,#0b1c2b,#08111d);box-shadow:0 0 26px #08d9c433}}
-.kicker{{color:#6ee7d8;font:800 10px ui-monospace,monospace;letter-spacing:2px}}
-.warning{{margin:12px 0;padding:10px;border:1px solid #ef4444;background:#3b1015;color:#fecaca;font-weight:800}}
-.label{{color:#99adc0;font:700 10px ui-monospace,monospace;letter-spacing:1px;margin-top:12px}}
-.value{{display:block;overflow-wrap:anywhere;margin-top:4px;padding:9px;background:#040912;border:1px solid #26394a;color:#fff;font:700 15px ui-monospace,monospace;user-select:all}}
-.timer{{margin-top:12px;color:#fcd34d;font-weight:800}}.pending{{display:none;color:#d8f4ff;line-height:1.65}}
-</style></head><body><div class="card"><div class="kicker" id="stage">STEP 3 OF 4 · SAVE CREDENTIALS</div><p>Sign in with the email address and password; your username is your profile name.</p><div id="secret">
-<div class="warning">⚠ Save these details now. This reveal disappears after 30 seconds. Do not share your details with anyone.</div>
-<div class="label">USERNAME</div><span id="username" class="value"></span><div class="label">EMAIL</div><span id="email" class="value"></span>
-<div class="label">RANDOM PASSWORD</div><span id="password" class="value"></span><div class="timer">Credentials hide in <span id="seconds">30</span> seconds.</div></div>
-<div id="pending" class="pending"><strong>Credentials hidden.</strong><br>Contact the admin using Contact Support/Admin or the email shown on this page for verification, then wait for approval before logging in.</div>
+*{box-sizing:border-box}body{margin:0;background:transparent;color:#ecf7ff;font:14px system-ui,sans-serif}
+.card{padding:18px;border:1px solid #27d3c0;border-left:4px solid #25d366;background:linear-gradient(135deg,#0b1c2b,#08111d);box-shadow:0 0 26px #08d9c433}
+.kicker{color:#6ee7d8;font:800 10px ui-monospace,monospace;letter-spacing:2px}
+.warning{margin:12px 0;padding:10px;border:1px solid #ef4444;background:#3b1015;color:#fecaca;font-weight:800}
+.label{color:#99adc0;font:700 10px ui-monospace,monospace;letter-spacing:1px;margin-top:12px}
+.row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.value{display:block;flex:1;overflow-wrap:anywhere;padding:9px;background:#040912;border:1px solid #26394a;color:#fff;font:700 15px ui-monospace,monospace;user-select:all}
+.copy{padding:9px 11px;border:1px solid #27d3c0;border-radius:6px;background:#102a38;color:#baf7ee;font-weight:800;cursor:pointer}
+.timer{margin-top:12px;color:#fcd34d;font-weight:800}.pending{display:none;color:#d8f4ff;line-height:1.65}
+#copy-status{min-height:18px;margin-top:5px;color:#6ee7d8;font-size:12px}
+</style></head><body><div class="card"><div class="kicker" id="stage">STEP 3 OF 4 · SAVE CREDENTIALS</div><p>Sign in with your email address or username and password.</p><div id="secret">
+<div class="warning">⚠ Save these details now. This reveal disappears after 120 seconds. Do not share your details with anyone.</div>
+<div class="label">USERNAME</div><div class="row"><span id="username" class="value"></span><button class="copy" onclick="copyText('username')">COPY</button></div>
+<div class="label">EMAIL</div><div class="row"><span id="email" class="value"></span><button class="copy" onclick="copyText('email')">COPY</button></div>
+<div class="label">PASSWORD</div><div class="row"><span id="password" class="value"></span><button class="copy" onclick="copyText('password')">COPY</button></div>
+<div id="copy-status" aria-live="polite"></div><div class="timer">Credentials hide in <span id="seconds">120</span> seconds.</div></div>
+<div id="pending" class="pending"><strong>Credentials hidden.</strong><br>If you forget your password, use <strong>Forgot Password?</strong> on the login page and request a reset link to this email. Do not create a second account. Contact the admin for approval before signing in.</div>
 </div><script>
-document.getElementById("username").textContent={username_js};
-document.getElementById("email").textContent={email_js};
-document.getElementById("password").textContent={password_js};
-let remaining=30;const timer=setInterval(()=>{{remaining--;document.getElementById("seconds").textContent=remaining;
-if(remaining<=0){{clearInterval(timer);document.getElementById("secret").remove();document.getElementById("stage").textContent="STEP 4 OF 4 · ADMIN VERIFICATION";document.getElementById("pending").style.display="block";}}}},1000);
+document.getElementById("username").textContent=__USERNAME__;
+document.getElementById("email").textContent=__EMAIL__;
+document.getElementById("password").textContent=__PASSWORD__;
+async function copyText(id){
+ const text=document.getElementById(id).textContent;
+ const status=document.getElementById("copy-status");
+ try{await navigator.clipboard.writeText(text);status.textContent="Copied. Save it somewhere private.";}
+ catch(e){const range=document.createRange();range.selectNodeContents(document.getElementById(id));const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);status.textContent="Select the highlighted text and copy it.";}
+}
+let remaining=120;const timer=setInterval(()=>{remaining--;document.getElementById("seconds").textContent=remaining;
+if(remaining<=0){clearInterval(timer);document.getElementById("secret").remove();document.getElementById("stage").textContent="STEP 4 OF 4 · ADMIN VERIFICATION";document.getElementById("pending").style.display="block";}},1000);
 </script></body></html>"""
+    return template.replace("__USERNAME__", username_js).replace("__EMAIL__", email_js).replace("__PASSWORD__", password_js)
 
+
+def _password_recovery_html(supabase_url: str, supabase_key: str) -> str:
+    import json
+    template = r"""
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}body{margin:0;padding:12px;background:#07111d;color:#e7f4ff;font:14px system-ui,sans-serif}
+.card{max-width:560px;margin:0 auto;padding:18px;border:1px solid #27d3c0;border-radius:12px;background:linear-gradient(135deg,#0b1c2b,#08111d);box-shadow:0 0 24px #08d9c433}
+h3{margin:0 0 8px;color:#91f3e7}p{line-height:1.55;color:#bdcbd7}
+input{display:block;width:100%;padding:11px;margin:8px 0;background:#040912;color:white;border:1px solid #385267;border-radius:6px}
+button{padding:11px 14px;margin-top:8px;background:#10b9a6;color:#041411;border:0;border-radius:6px;font-weight:800;cursor:pointer}
+.msg{margin-top:10px;line-height:1.45}.error{color:#fca5a5}.ok{color:#86efac}
+</style></head><body><div class="card" id="card"><h3>SET A NEW PASSWORD</h3>
+<p>Choose at least 12 characters, including upper- and lowercase letters, a number, and a symbol.</p>
+<form id="form"><input id="newpass" type="password" autocomplete="new-password" placeholder="New password" required>
+<input id="confirm" type="password" autocomplete="new-password" placeholder="Confirm new password" required>
+<button type="submit">UPDATE PASSWORD</button></form><div id="msg" class="msg" aria-live="polite"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+(async function(){
+ const msg=document.getElementById("msg");
+ try{
+   const currentUrl=new URL(window.parent.location.href);
+   if(currentUrl.searchParams.get("recover")!=="1"){document.getElementById("card").style.display="none";return;}
+   const tokens=new URLSearchParams(currentUrl.hash.replace(/^#/,""));
+   const access=tokens.get("access_token"), refresh=tokens.get("refresh_token"), kind=tokens.get("type");
+   if(!window.supabase||!access||!refresh||kind!=="recovery"){
+     document.getElementById("form").style.display="none";
+     msg.className="msg error";msg.textContent="This reset link is missing, expired, or already used. Return to login and request a new one.";
+     return;
+   }
+   const client=window.supabase.createClient(__SUPABASE_URL__,__SUPABASE_KEY__);
+   const result=await client.auth.setSession({access_token:access,refresh_token:refresh});
+   if(result.error)throw result.error;
+   document.getElementById("form").addEventListener("submit",async function(event){
+     event.preventDefault();
+     const password=document.getElementById("newpass").value, confirmation=document.getElementById("confirm").value;
+     const strong=password.length>=12&&/[a-z]/.test(password)&&/[A-Z]/.test(password)&&/[0-9]/.test(password)&&/[^A-Za-z0-9]/.test(password);
+     if(!strong){msg.className="msg error";msg.textContent="Use at least 12 characters with upper- and lowercase letters, a number, and a symbol.";return;}
+     if(password!==confirmation){msg.className="msg error";msg.textContent="The passwords do not match.";return;}
+     const button=event.submitter;button.disabled=true;button.textContent="UPDATING…";
+     const update=await client.auth.updateUser({password});
+     if(update.error){msg.className="msg error";msg.textContent="Password update failed. Request a fresh reset email and try again.";button.disabled=false;button.textContent="UPDATE PASSWORD";return;}
+     await client.auth.signOut();
+     msg.className="msg ok";msg.textContent="Password updated. Returning you to login…";
+     const dest=new URL(currentUrl.origin+currentUrl.pathname);dest.searchParams.set("password_reset","success");
+     window.parent.location.replace(dest.toString());
+   });
+ }catch(error){
+   msg.className="msg error";msg.textContent="Could not open the reset session. Request a new reset email and try again.";
+ }
+})();
+</script></body></html>"""
+    return template.replace("__SUPABASE_URL__", json.dumps(supabase_url)).replace("__SUPABASE_KEY__", json.dumps(supabase_key))
 
 def _set_profile_metadata(updates: dict):
     response = supabase.auth.update_user({"data": updates})
@@ -1005,6 +1076,17 @@ def show_login():
     <h1 class="title-aviator">AVIATOR <span class="title-signals">SIGNALS</span></h1>
     <p class="subtext">NO RISK NO GAIN</p></div>
     """, unsafe_allow_html=True)
+    if st.query_params.get("recover") == "1":
+        st.markdown("### SECURE PASSWORD RECOVERY")
+        components.html(_password_recovery_html(SUPABASE_URL, SUPABASE_KEY), height=380, scrolling=False)
+        if st.button("RETURN TO LOGIN", use_container_width=True, key="recovery_return_login"):
+            st.query_params.clear()
+            st.session_state["auth_mode"] = "login"
+            st.rerun()
+        return
+    if st.query_params.get("password_reset") == "success":
+        st.success("Your password has been updated in Supabase. Sign in with your new password.")
+        st.query_params.clear()
     mode = st.session_state.get("auth_mode", "login")
     if mode == "login":
         _, main_column, _ = st.columns([1, 4, 1])
@@ -1084,8 +1166,35 @@ def show_login():
                     st.rerun()
                 except Exception:
                     st.error("Sign-in failed. Check your email or username, password, and account approval status.")
+            if st.button("FORGOT PASSWORD?", use_container_width=True, key="forgot_password_from_login"):
+                st.session_state["auth_mode"] = "forgot_password"
+                st.rerun()
             if st.button("CREATE ACCOUNT", use_container_width=True):
                 st.session_state["auth_mode"] = "signup_email"
+                st.rerun()
+
+        elif mode == "forgot_password":
+            st.markdown("### RECOVER YOUR ACCOUNT")
+            st.caption("Enter the email you used at signup. We’ll send a one-time reset link if an account matches. You do not need to create another account.")
+            recovery_email = st.text_input("EMAIL ADDRESS", placeholder="name@example.com", key="forgot_password_email")
+            left, right = st.columns(2)
+            with left:
+                send_reset = st.button("SEND RESET LINK", type="primary", use_container_width=True)
+            with right:
+                back_to_login = st.button("BACK TO LOGIN", use_container_width=True, key="forgot_password_back")
+            if send_reset:
+                candidate_email = recovery_email.strip().lower()
+                valid_email = candidate_email.count("@") == 1 and not any(ch.isspace() for ch in candidate_email) and "." in candidate_email.split("@", 1)[1]
+                if not valid_email:
+                    st.error("Enter the email address used when creating the account.")
+                else:
+                    try:
+                        supabase.auth.reset_password_for_email(candidate_email, {"redirect_to": PASSWORD_RESET_URL})
+                        st.success("If the address belongs to an account, a password-reset email will arrive shortly. Check your spam folder too.")
+                    except Exception:
+                        st.error("Could not request a reset email. Check Supabase email delivery and the allowed redirect URL, then try again.")
+            if back_to_login:
+                st.session_state["auth_mode"] = "login"
                 st.rerun()
 
         elif mode == "signup_email":
@@ -1137,7 +1246,7 @@ def show_login():
                     st.session_state["auth_mode"] = "signup_credentials"
                     st.markdown("### ACCOUNT CREATED · PENDING ADMIN VERIFICATION")
                     st.caption("This one-time password is not saved in the app's session state or shown to the admin.")
-                    components.html(_credential_reveal_html(username, email, password), height=460, scrolling=False)
+                    components.html(_credential_reveal_html(username, email, password), height=520, scrolling=False)
                     if st.button("RETURN TO LOGIN PAGE", use_container_width=True, key="return_to_login_after_signup"):
                         st.session_state["auth_mode"] = "login"
                         st.session_state["auth_notice"] = "Your account is awaiting admin approval. You can sign in after approval."
