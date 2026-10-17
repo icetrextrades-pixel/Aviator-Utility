@@ -42,9 +42,10 @@ The APK is an Android WebView wrapper around the hosted app. It requires an inte
 ### Create an account
 
 1. Enter your email in the account creation flow.
-2. Choose one of the offered usernames and save the generated password when it appears. The password reveal closes after 30 seconds; **do not share your login details**.
+2. Choose one of the offered usernames. The app generates a unique 16-character password and shows copy buttons; the credential reveal closes after 120 seconds. Save the password privately.
 3. Contact the administrator for account review and wait for approval.
 4. After approval, sign in with either your email address or username and the password you saved.
+5. If you forget it, choose **Forgot Password?** on the login page and request a reset link to your signup email. You can reset the existing account; do not create another one.
 
 The app uses Supabase Auth for account credentials and Supabase tables for app data. The administrator does not need your password to approve your account.
 
@@ -77,6 +78,8 @@ SUPABASE_SECRET_KEY = "YOUR_SERVER_SIDE_SECRET_KEY"
 ```
 
 The app accepts `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY` as alternatives to `SUPABASE_KEY`. For the server-side value it accepts `SUPABASE_SERVICE_ROLE_KEY` as an alternative to `SUPABASE_SECRET_KEY`. Keep the server-side secret exclusively in Streamlit's secret settings; never put it in the Android project, a public repository, or client-side code. If a key is ever exposed, rotate it in Supabase.
+
+Password recovery uses the redirect URL `https://icetrexpredictor.streamlit.app/?recover=1`. Add this URL (or a matching wildcard) under **Supabase → Authentication → URL Configuration → Redirect URLs**, and make sure Supabase Auth email delivery is enabled. You can override the redirect with `SUPABASE_PASSWORD_RESET_REDIRECT_URL` in Streamlit Secrets if you use a different hosted URL.
 
 ## Supabase database setup
 
