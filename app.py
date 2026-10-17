@@ -884,7 +884,7 @@ def _credential_reveal_html(username: str, email: str, password: str) -> str:
 <div class="label">EMAIL</div><div class="row"><span id="email" class="value"></span><button class="copy" onclick="copyText('email')">COPY</button></div>
 <div class="label">PASSWORD</div><div class="row"><span id="password" class="value"></span><button class="copy" onclick="copyText('password')">COPY</button></div>
 <div id="copy-status" aria-live="polite"></div><div class="timer">Credentials hide in <span id="seconds">120</span> seconds.</div></div>
-<div id="pending" class="pending"><strong>Credentials hidden.</strong><br>If you forget your password, use <strong>Forgot Password?</strong> on the login page and request a reset link to this email. Do not create a second account. Contact the admin for approval before signing in.</div>
+<div id="pending" class="pending"><strong>Credentials hidden.</strong><br>If you forget your password, use <strong>Forgot Password?</strong> on the login page. If email recovery is unavailable, contact the admin to reset this same account; do not create a second account. Contact the admin for approval before signing in.</div>
 </div><script>
 document.getElementById("username").textContent=__USERNAME__;
 document.getElementById("email").textContent=__EMAIL__;
@@ -1175,7 +1175,7 @@ def show_login():
 
         elif mode == "forgot_password":
             st.markdown("### RECOVER YOUR ACCOUNT")
-            st.caption("Enter the email you used at signup. We’ll send a one-time reset link if an account matches. You do not need to create another account.")
+            st.caption("Enter the email you used at signup. We’ll request a one-time reset link. If no email arrives, contact Support/Admin to reset the existing account—do not sign up again.")
             recovery_email = st.text_input("EMAIL ADDRESS", placeholder="name@example.com", key="forgot_password_email")
             left, right = st.columns(2)
             with left:
