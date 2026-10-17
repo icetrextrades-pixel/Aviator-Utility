@@ -79,7 +79,7 @@ SUPABASE_SECRET_KEY = "YOUR_SERVER_SIDE_SECRET_KEY"
 
 The app accepts `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY` as alternatives to `SUPABASE_KEY`. For the server-side value it accepts `SUPABASE_SERVICE_ROLE_KEY` as an alternative to `SUPABASE_SECRET_KEY`. Keep the server-side secret exclusively in Streamlit's secret settings; never put it in the Android project, a public repository, or client-side code. If a key is ever exposed, rotate it in Supabase.
 
-Password recovery uses the redirect URL `https://icetrexpredictor.streamlit.app/?recover=1`. Add this URL (or a matching wildcard) under **Supabase → Authentication → URL Configuration → Redirect URLs**, and make sure Supabase Auth email delivery is enabled. You can override the redirect with `SUPABASE_PASSWORD_RESET_REDIRECT_URL` in Streamlit Secrets if you use a different hosted URL.
+Password recovery uses the redirect URL `https://icetrexpredictor.streamlit.app/?recover=1`. Add this URL (or a matching wildcard) under **Supabase → Authentication → URL Configuration → Redirect URLs**. Supabase's built-in email sender is limited and only delivers to project organization members; to send reset links to ordinary users, configure a custom SMTP provider under **Authentication → Emails → SMTP Settings**. You can override the redirect with `SUPABASE_PASSWORD_RESET_REDIRECT_URL` in Streamlit Secrets if you use a different hosted URL. See the [Supabase SMTP guide](https://supabase.com/docs/guides/auth/auth-smtp).
 
 ## Supabase database setup
 
